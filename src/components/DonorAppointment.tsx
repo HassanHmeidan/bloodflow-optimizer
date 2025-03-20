@@ -43,16 +43,58 @@ export const DonorAppointment = () => {
     
     setLoading(true);
     
-    // Mock API call
-    setTimeout(() => {
+    // Mock API call to Python backend
+    // In a real implementation, this would be a fetch to your Python backend
+    fetch('https://api.example.com/appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        date: format(date, "yyyy-MM-dd"),
+        location,
+        timeSlot,
+        userId: localStorage.getItem('userId') || 'anonymous'
+      }),
+    })
+    .then(response => {
+      // Since we don't have an actual backend, we'll simulate a successful response
+      if (!response.ok && false) { // Always proceed as if successful for demo
+        throw new Error('Failed to schedule appointment');
+      }
+      
+      // For demo purposes, we'll just simulate a successful response
+      return { success: true };
+    })
+    .then(data => {
       toast.success("Appointment scheduled successfully!", {
         description: `Your appointment is set for ${format(date, "MMMM d, yyyy")} at ${timeSlot}, ${location}.`
       });
-      setLoading(false);
+      
+      // Save appointment to localStorage for demo purposes
+      const appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+      appointments.push({
+        id: Date.now(),
+        date: format(date, "yyyy-MM-dd"),
+        formattedDate: format(date, "MMMM d, yyyy"),
+        location,
+        timeSlot
+      });
+      localStorage.setItem('appointments', JSON.stringify(appointments));
+      
+      // Reset form
       setDate(undefined);
       setLocation("");
       setTimeSlot("");
-    }, 1500);
+    })
+    .catch(error => {
+      toast.error("Failed to schedule appointment", {
+        description: error.message
+      });
+    })
+    .finally(() => {
+      setLoading(false);
+    });
   };
   
   return (

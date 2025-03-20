@@ -1,4 +1,5 @@
 
+// React Frontend with Python Backend Integration
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +13,20 @@ import Request from "./pages/Request";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// This frontend connects to a Python backend API
+// The backend would typically be built with frameworks like:
+// - Flask
+// - FastAPI
+// - Django
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
