@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { BloodInventory } from "@/components/BloodInventory";
+import { DonorAppointment } from "@/components/DonorAppointment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -312,17 +312,47 @@ const Dashboard = () => {
                 </TabsContent>
                 
                 <TabsContent value="appointments">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>My Appointments</CardTitle>
-                      <CardDescription>Schedule and manage your donation appointments</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Appointment management interface would be displayed here.
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <DonorAppointment />
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Upcoming Appointments</CardTitle>
+                        <CardDescription>Your scheduled donation appointments</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {donorData.upcomingAppointment ? (
+                          <div className="p-4 border border-gray-100 rounded-lg">
+                            <div className="flex items-center mb-2">
+                              <div className="w-10 h-10 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-3">
+                                <Calendar className="h-5 w-5 text-bloodRed-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{donorData.upcomingAppointment}</p>
+                                <p className="text-sm text-gray-600">Central Blood Bank, 10:30 AM</p>
+                              </div>
+                            </div>
+                            <div className="flex space-x-2 mt-3">
+                              <Button size="sm" variant="outline" className="text-gray-600">
+                                <Pencil className="h-3.5 w-3.5 mr-1" />
+                                Reschedule
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                <X className="h-3.5 w-3.5 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                            <p>No upcoming appointments</p>
+                            <p className="text-sm text-gray-400 mt-1">Schedule your next donation using the form</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
@@ -713,76 +743,4 @@ const Dashboard = () => {
                                   ? 'bg-amber-50 text-amber-600'
                                   : 'bg-red-50 text-red-600'
                               }`}>
-                                {system.status.charAt(0).toUpperCase() + system.status.slice(1)}
-                              </div>
-                            </div>
-                            <Progress value={system.value} className="h-2" />
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="donors">
-                  <Card>
-                    <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-center space-y-2 sm:space-y-0">
-                      <div>
-                        <CardTitle>Donor Management</CardTitle>
-                        <CardDescription>View and manage all registered donors</CardDescription>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="relative">
-                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                          <input 
-                            type="text" 
-                            placeholder="Search donors..."
-                            className="pl-8 h-9 w-full sm:w-[250px] rounded-md border border-gray-200 bg-white text-sm focus:border-bloodRed-500 focus:ring-1 focus:ring-bloodRed-500 outline-none"
-                          />
-                        </div>
-                        <Button variant="outline" size="sm" className="h-9">
-                          Filter
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-10">
-                        <p className="text-gray-600">
-                          The donor management interface would be displayed here.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="requests">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Blood Request Management</CardTitle>
-                      <CardDescription>Process and track blood requests from hospitals</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-10">
-                        <p className="text-gray-600">
-                          The blood request management interface would be displayed here.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="inventory">
-                  <BloodInventory />
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
-  );
-};
-
-export default Dashboard;
+                                {system.status.charAt(0).toUpperCase() + system.status.

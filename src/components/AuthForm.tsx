@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle } from 'lucide-react';
@@ -9,6 +10,10 @@ import { toast } from "sonner";
 
 type AuthMode = 'login' | 'register';
 type UserRole = 'donor' | 'hospital' | 'admin';
+
+// Admin credentials
+const ADMIN_EMAIL = "admin@lifeflow.com";
+const ADMIN_PASSWORD = "admin123";
 
 export const AuthForm = () => {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -41,6 +46,10 @@ export const AuthForm = () => {
       name: '',
       confirmPassword: '',
     });
+    // Reset to donor role when switching to register mode
+    if (mode === 'login') {
+      setUserRole('donor');
+    }
   };
 
   // Form submission
@@ -55,6 +64,18 @@ export const AuthForm = () => {
     }
     
     setLoading(true);
+    
+    // Check for admin login
+    if (mode === 'login' && formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
+      localStorage.setItem('authToken', 'admin-token');
+      localStorage.setItem('userRole', 'admin');
+      toast.success("Admin login successful!", {
+        description: "Welcome to the LifeFlow admin dashboard.",
+      });
+      navigate('/dashboard');
+      setLoading(false);
+      return;
+    }
     
     setTimeout(() => {
       if (mode === 'login') {
@@ -236,7 +257,7 @@ export const AuthForm = () => {
           {mode === 'register' && (
             <div className="space-y-2">
               <Label>I am a:</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant={userRole === 'donor' ? 'default' : 'outline'}
@@ -260,18 +281,6 @@ export const AuthForm = () => {
                 >
                   <Heart className="h-4 w-4 mb-1" />
                   <span className="text-xs font-medium">Hospital</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={userRole === 'admin' ? 'default' : 'outline'}
-                  className={`
-                    border-2 h-auto py-3 px-2 flex flex-col items-center
-                    ${userRole === 'admin' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
-                  `}
-                  onClick={() => setUserRole('admin')}
-                >
-                  <Lock className="h-4 w-4 mb-1" />
-                  <span className="text-xs font-medium">Admin</span>
                 </Button>
               </div>
             </div>
@@ -315,6 +324,11 @@ export const AuthForm = () => {
         <div className="text-sm text-blue-800">
           <p className="font-medium">Demo Application</p>
           <p className="mt-1">This is a demonstration. No actual authentication is performed.</p>
+          {mode === 'login' && (
+            <p className="mt-1">
+              <strong>Admin Login:</strong> admin@lifeflow.com / admin123
+            </p>
+          )}
         </div>
       </div>
     </div>
