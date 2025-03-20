@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
@@ -743,4 +744,73 @@ const Dashboard = () => {
                                   ? 'bg-amber-50 text-amber-600'
                                   : 'bg-red-50 text-red-600'
                               }`}>
-                                {system.status.charAt(0).toUpperCase() + system.status.
+                                {system.status.charAt(0).toUpperCase() + system.status.slice(1)}
+                              </div>
+                            </div>
+                            <Progress value={system.value} className={`h-2 ${
+                              system.status === 'operational' 
+                                ? 'bg-green-100' 
+                                : system.status === 'degraded'
+                                ? 'bg-amber-100'
+                                : 'bg-red-100'
+                            }`} />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="donors">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Donor Management</CardTitle>
+                      <CardDescription>Manage donor accounts and information</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-center py-8 text-gray-500">
+                        Donor management interface would be displayed here.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="requests">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Blood Request Management</CardTitle>
+                      <CardDescription>Review and process blood requests</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-center py-8 text-gray-500">
+                        Blood request management interface would be displayed here.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="inventory">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Blood Inventory Management</CardTitle>
+                      <CardDescription>Track and manage blood inventory</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-center py-8 text-gray-500">
+                        Blood inventory management interface would be displayed here.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </div>
+      </main>
+      
+      <Footer />
+    </div>
+  );
+};
+
+export default Dashboard;
