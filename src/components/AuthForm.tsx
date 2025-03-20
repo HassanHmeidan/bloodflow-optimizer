@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle } from 'lucide-react';
@@ -6,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 type AuthMode = 'login' | 'register';
 type UserRole = 'donor' | 'hospital' | 'admin';
@@ -36,7 +35,6 @@ export const AuthForm = () => {
   // Toggle auth mode
   const toggleMode = () => {
     setMode(mode === 'login' ? 'register' : 'login');
-    // Reset form when switching modes
     setFormData({
       email: '',
       password: '',
@@ -49,7 +47,6 @@ export const AuthForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
     if (mode === 'register' && formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match", {
         description: "Please make sure both passwords are identical.",
@@ -59,9 +56,7 @@ export const AuthForm = () => {
     
     setLoading(true);
     
-    // Simulate API call
     setTimeout(() => {
-      // Mock successful auth
       if (mode === 'login') {
         localStorage.setItem('authToken', 'mock-token');
         localStorage.setItem('userRole', userRole);
@@ -151,7 +146,6 @@ export const AuthForm = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Registration - Name Field */}
           {mode === 'register' && (
             <div className="space-y-1">
               <Label htmlFor="name">Full Name</Label>
@@ -173,7 +167,6 @@ export const AuthForm = () => {
             </div>
           )}
           
-          {/* Email Field */}
           <div className="space-y-1">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -193,7 +186,6 @@ export const AuthForm = () => {
             </div>
           </div>
           
-          {/* Password Field */}
           <div className="space-y-1">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
@@ -220,7 +212,6 @@ export const AuthForm = () => {
             </div>
           </div>
           
-          {/* Registration - Confirm Password */}
           {mode === 'register' && (
             <div className="space-y-1">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -242,7 +233,6 @@ export const AuthForm = () => {
             </div>
           )}
           
-          {/* Registration - User Role Selection */}
           {mode === 'register' && (
             <div className="space-y-2">
               <Label>I am a:</Label>
@@ -287,7 +277,6 @@ export const AuthForm = () => {
             </div>
           )}
           
-          {/* Login - Forgot Password */}
           {mode === 'login' && (
             <div className="flex justify-end">
               <a 
@@ -299,7 +288,6 @@ export const AuthForm = () => {
             </div>
           )}
           
-          {/* Submit Button */}
           <Button 
             type="submit" 
             className="w-full bg-bloodRed-600 hover:bg-bloodRed-700 h-11"
@@ -322,7 +310,6 @@ export const AuthForm = () => {
         </form>
       </motion.div>
       
-      {/* Demo Notice */}
       <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start">
         <AlertCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
