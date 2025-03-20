@@ -1,0 +1,240 @@
+
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { AlertCircle, FileText, CalendarClock } from 'lucide-react';
+
+const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const urgencyLevels = ["Normal", "Urgent", "Emergency"];
+
+const Request = () => {
+  const [loading, setLoading] = useState(false);
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      toast.success("Blood request submitted successfully", {
+        description: "We'll notify you once your request is processed.",
+        duration: 5000,
+      });
+      setLoading(false);
+    }, 1500);
+  };
+  
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      
+      <main className="flex-grow pt-16">
+        {/* Hero Section */}
+        <section className="py-12 bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <FileText className="h-16 w-16 mx-auto mb-6 text-white" />
+                <h1 className="text-3xl sm:text-4xl font-bold mb-4">Request Blood</h1>
+                <p className="text-xl text-white/80">
+                  Fill out the form below to request blood for a patient in need.
+                </p>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+        
+        {/* Request Form */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-3xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-white p-8 rounded-xl shadow-sm border border-gray-200"
+              >
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="patientName">Patient Name</Label>
+                      <Input id="patientName" placeholder="Full name of patient" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="hospitalName">Hospital/Clinic Name</Label>
+                      <Input id="hospitalName" placeholder="Name of medical facility" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="bloodType">Blood Type Needed</Label>
+                      <Select required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select blood type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bloodTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="units">Units Required</Label>
+                      <Input id="units" type="number" min="1" max="10" placeholder="Number of units" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="urgency">Urgency Level</Label>
+                      <Select required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select urgency level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {urgencyLevels.map((level) => (
+                            <SelectItem key={level} value={level}>
+                              {level}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="requiredBy">Required By Date</Label>
+                      <Input id="requiredBy" type="date" required />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Delivery Address</Label>
+                    <Textarea id="address" placeholder="Full address for blood delivery" rows={3} required />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="medicalCase">Medical Case Description</Label>
+                    <Textarea id="medicalCase" placeholder="Brief description of the medical case" rows={4} required />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="contactName">Contact Person</Label>
+                    <Input id="contactName" placeholder="Name of primary contact person" required />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="contactPhone">Contact Phone</Label>
+                      <Input id="contactPhone" type="tel" placeholder="Phone number" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="contactEmail">Contact Email</Label>
+                      <Input id="contactEmail" type="email" placeholder="Email address" required />
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg flex items-start">
+                    <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-800">
+                      <strong>Important:</strong> Please provide accurate information to ensure fast processing. 
+                      For emergency cases, we recommend also calling our emergency hotline at 1-800-LIFE-NOW.
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 bg-bloodRed-600 hover:bg-bloodRed-700"
+                    disabled={loading}
+                  >
+                    {loading ? "Submitting..." : "Submit Blood Request"}
+                  </Button>
+                </form>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+        
+        {/* How It Works */}
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="text-center mb-12"
+              >
+                <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+                <p className="text-gray-600">
+                  Understanding the blood request process from submission to delivery.
+                </p>
+              </motion.div>
+              
+              <div className="space-y-8">
+                {[
+                  {
+                    title: "Submit Request",
+                    description: "Fill out the request form with all required patient and medical information.",
+                    icon: FileText,
+                  },
+                  {
+                    title: "Request Processing",
+                    description: "Our team reviews your request and matches it with available blood inventory.",
+                    icon: CalendarClock,
+                  },
+                  {
+                    title: "Confirmation",
+                    description: "You'll receive a confirmation when your request is approved with delivery details.",
+                    icon: AlertCircle,
+                  },
+                ].map((step, index) => (
+                  <motion.div 
+                    key={index}
+                    className="flex items-start"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                  >
+                    <div className="bg-white h-12 w-12 rounded-full flex items-center justify-center shadow-sm border border-gray-200 mr-4 flex-shrink-0">
+                      <step.icon className="h-6 w-6 text-bloodRed-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+                      <p className="text-gray-600">{step.description}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      
+      <Footer />
+    </div>
+  );
+};
+
+export default Request;
