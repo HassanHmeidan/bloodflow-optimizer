@@ -1,4 +1,6 @@
+
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,16 @@ import {
 } from 'lucide-react';
 
 const Donate = () => {
+  const navigate = useNavigate();
+  
+  const handleAppointmentClick = () => {
+    // Scroll to the appointment section
+    const appointmentSection = document.querySelector("#appointment-section");
+    if (appointmentSection) {
+      appointmentSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -39,7 +51,7 @@ const Donate = () => {
         </section>
         
         {/* Schedule Appointment Section */}
-        <section className="py-16 bg-white">
+        <section id="appointment-section" className="py-16 bg-white">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
               <motion.div
@@ -194,7 +206,10 @@ const Donate = () => {
                         <span>{location.hours}</span>
                       </div>
                     </div>
-                    <Button className="w-full bg-bloodRed-600 hover:bg-bloodRed-700">
+                    <Button 
+                      className="w-full bg-bloodRed-600 hover:bg-bloodRed-700"
+                      onClick={handleAppointmentClick}
+                    >
                       Schedule Appointment
                     </Button>
                   </motion.div>
@@ -219,7 +234,10 @@ const Donate = () => {
                 <p className="text-xl text-gray-600 mb-8">
                   Schedule your donation appointment today and join our community of heroes.
                 </p>
-                <Button className="bg-bloodRed-600 hover:bg-bloodRed-700 h-12 px-8 text-lg">
+                <Button 
+                  className="bg-bloodRed-600 hover:bg-bloodRed-700 h-12 px-8 text-lg"
+                  onClick={handleAppointmentClick}
+                >
                   Schedule Appointment
                 </Button>
               </motion.div>

@@ -4,8 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, X, Bot, Loader2, HelpCircle, Info } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  MessageCircle, 
+  Send, 
+  X, 
+  Bot, 
+  Loader2, 
+  HelpCircle, 
+  Info,
+  Search,
+  Calendar,
+  Droplet,
+  User,
+  Clock,
+  MapPin,
+  Heart
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from "sonner";
 
 type Message = {
   id: number;
@@ -14,20 +31,46 @@ type Message = {
   timestamp: Date;
 };
 
-// Suggested questions to help users interact with the chatbot
-const suggestedQuestions = [
-  "How can I donate blood?",
-  "What are the eligibility requirements?",
-  "How long does donation take?",
-  "Where is the nearest donation center?",
-  "When can I donate again?",
-  "What blood types are needed most?"
-];
+// Categorized suggested questions to help users interact with the chatbot
+const suggestedQuestions = {
+  donation: [
+    "How can I donate blood?",
+    "What are the eligibility requirements?",
+    "How long does donation take?",
+    "When can I donate again?",
+    "What should I do before donating?",
+    "What happens after I donate?",
+  ],
+  medical: [
+    "What blood types are needed most?",
+    "What is my blood used for?",
+    "Is donating blood safe?",
+    "Will donating blood make me weak?",
+    "How much blood is taken?",
+    "Can I donate if I have a medical condition?",
+  ],
+  logistics: [
+    "Where is the nearest donation center?",
+    "How do I schedule an appointment?",
+    "Can I walk in without an appointment?",
+    "How long does the whole process take?",
+    "What documents do I need to bring?",
+    "Are there mobile blood drives?",
+  ],
+  about: [
+    "How does LifeFlow work?",
+    "Who is behind LifeFlow?",
+    "How is my data protected?",
+    "Can I see where my blood goes?",
+    "How can I volunteer?",
+    "How can I request blood?",
+  ],
+};
 
 const initialMessages: Message[] = [
   {
     id: 1,
-    text: "👋 Hi there! I'm LifeFlow's virtual assistant. How can I help you with blood donation today?\n\nYou can ask me about donation eligibility, process, locations, or click one of the suggested topics below.",
+    text: "👋 Hi there! I'm LifeFlow's virtual assistant. How can I help you with blood donation today?\n\nYou can ask me anything or select a category below to see common questions.",
     isUser: false,
     timestamp: new Date()
   }
@@ -40,6 +83,7 @@ export const Chatbot = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string>("donation");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   // Auto-scroll to the bottom when new messages are added
@@ -70,7 +114,7 @@ export const Chatbot = () => {
     setShowSuggestions(false);
     
     try {
-      // Simulate network delay for AI response
+      // Simulate network delay for AI response (would be replaced by real AI API)
       await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
       
       // Generate an AI response based on the user's input
@@ -94,6 +138,7 @@ export const Chatbot = () => {
           
           // Wait a moment before navigating
           setTimeout(() => {
+            toast.info("Navigating to the requested page...");
             navigate(route);
           }, 1000);
         }
@@ -115,7 +160,7 @@ export const Chatbot = () => {
       console.error("Error generating AI response:", error);
       const errorMessage: Message = {
         id: Date.now(),
-        text: "I'm sorry, I encountered an error. Please try again.",
+        text: "I apologize, but I'm having trouble processing your request. Please try again in a moment.",
         isUser: false,
         timestamp: new Date()
       };
@@ -130,6 +175,7 @@ export const Chatbot = () => {
     handleSendMessage(undefined, question);
   };
   
+  // Advanced AI response generator that handles a wide range of questions
   const generateAIResponse = (userInput: string): string => {
     // Convert to lowercase for easier matching
     const input = userInput.toLowerCase();
@@ -137,7 +183,7 @@ export const Chatbot = () => {
     // Blood donation process
     if (input.includes("process") || input.includes("what happens") || input.includes("how does") || 
         input.includes("steps") || input.includes("procedure")) {
-      return "The blood donation process is simple and takes about an hour from start to finish:\n\n1. Registration and health history\n2. Mini-physical (temperature, pulse, blood pressure, hemoglobin)\n3. The actual donation (just 8-10 minutes)\n4. Refreshments and rest (15 minutes)\n\nThe needle used is sterile and disposed of after use, so there's no risk of infection. Would you like to know more about any specific part of the process?";
+      return "The blood donation process is simple and takes about an hour from start to finish:\n\n1️⃣ Registration and health history\n2️⃣ Mini-physical (temperature, pulse, blood pressure, hemoglobin)\n3️⃣ The actual donation (just 8-10 minutes)\n4️⃣ Refreshments and rest (15 minutes)\n\nThe needle used is sterile and disposed of after use, so there's no risk of infection. Would you like to know more about any specific part of the process?";
     }
     
     // Looking for appointment-related keywords
@@ -212,8 +258,6 @@ export const Chatbot = () => {
       return "After collection, your donated blood goes through several important steps:\n\n1️⃣ Testing for infectious diseases and blood typing\n2️⃣ Processing into components (red cells, platelets, plasma)\n3️⃣ Storage under carefully controlled conditions\n4️⃣ Distribution to hospitals based on need\n5️⃣ Transfusion to patients\n\nEvery donation is thoroughly tested for HIV, hepatitis B and C, West Nile virus, and other pathogens. Your blood type is also confirmed. This entire process usually takes 1-3 days before blood is available for patients.";
     }
     
-    // EXPANDED GENERAL TOPICS
-    
     // Health conditions and medications
     if (input.includes("medication") || input.includes("health condition") || input.includes("disease") || 
         input.includes("illness") || input.includes("sick") || input.includes("medical") ||
@@ -264,13 +308,59 @@ export const Chatbot = () => {
         input.includes("scared of") || input.includes("pain")) {
       return "It's completely normal to be concerned about needles. Here are some tips that might help:\n\n• Tell the staff it's a concern - they're experienced with nervous donors\n• Look away during needle insertion - bring a friend to chat with\n• Practice deep breathing exercises before and during donation\n• Eat well and stay hydrated before donating\n• The actual needle sensation is brief - many compare it to a quick pinch\n• Bring something distracting like music or a video to watch\n• Remember why you're donating - your temporary discomfort saves lives\n\nMany people with needle anxiety still donate successfully. The staff will make sure you're comfortable and can stop the process if needed.";
     }
+
+    // Users asking about user roles
+    if (input.includes("admin") || input.includes("hospital") || input.includes("user") || 
+        input.includes("roles") || input.includes("permissions") || input.includes("different accounts")) {
+      return "LifeFlow has different user roles with specific permissions:\n\n👤 Regular Users (Donors):\n• Can schedule donation appointments\n• View their donation history\n• Update personal information\n• Receive notifications about donation opportunities\n\n🏥 Hospital Staff:\n• Request specific blood types and quantities\n• View available blood inventory\n• Track incoming blood shipments\n• Manage patient blood needs\n\n👑 Administrators:\n• Manage all users and their roles\n• View system-wide analytics and reports\n• Configure system settings and policies\n• Coordinate blood drives and special events\n\nTo create or change your account type, please contact our support team who can verify your credentials and set up the appropriate access level.";
+    }
+    
+    // AI recommendations
+    if (input.includes("ai") || input.includes("artificial intelligence") || input.includes("machine learning") || 
+        input.includes("chatbot") || input.includes("automated") || input.includes("smart system")) {
+      return "LifeFlow leverages AI technology in several ways:\n\n🤖 Our chatbot assistant (that's me!) to answer questions and guide users\n🤖 Predictive analytics to forecast blood needs based on historical data\n🤖 Matching algorithms to connect donors with recipients efficiently\n🤖 Personalized donation reminders based on your donation history\n\nWe're constantly improving our AI capabilities to make blood donation more efficient and effective. In the future, we plan to add voice-enabled interactions and more personalized recommendations for donors. Do you have any suggestions for how we could use AI to improve your experience?";
+    }
+    
+    // Dashboard related questions
+    if (input.includes("dashboard") || input.includes("my account") || input.includes("profile") || 
+        input.includes("my donations") || input.includes("history") || input.includes("statistics")) {
+      return "Your personal dashboard contains all your donation information and settings. From there, you can:\n\n📊 View your donation history and impact\n📊 Track upcoming appointments\n📊 Update your personal information\n📊 See your blood type and donation eligibility\n📊 Access personalized recommendations\n\nWould you like to go to your dashboard now? [NAVIGATE:/dashboard]";
+    }
+
+    // User asks directly for help or has a generic question
+    if (input.includes("help") || input.includes("assist") || input.includes("support") || 
+        input.includes("question") || input.includes("tell me") || input.includes("information")) {
+      return "I'm here to help with any blood donation questions you might have! Here are some topics I can assist with:\n\n• Donation eligibility and requirements\n• The donation process and what to expect\n• Scheduling appointments\n• Finding donation locations\n• Health concerns related to donation\n• Different types of donations (whole blood, platelets, etc.)\n• Benefits of donating blood\n• How blood is used to help patients\n\nHow can I assist you today? Feel free to ask a specific question, or I can guide you through the donation process step by step.";
+    }
     
     // Catch-all response for anything not specifically matched
     return "I understand you're asking about \"" + userInput + "\". While I'm programmed to answer many blood donation questions, I can provide more specific information if you ask about:\n\n• Donation eligibility and requirements\n• The donation process and what to expect\n• Different types of donations (whole blood, platelets, etc.)\n• Post-donation care and recovery\n• Benefits of donating blood\n• Blood types and compatibility\n• Frequency of donation\n• Health conditions and medication impacts\n• COVID-19 and donation\n• First-time donor information\n\nCould you provide more details about what you'd like to know?";
   };
   
+  // Format time for message display
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  // Handle category change in the suggestions tabs
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category);
+  };
+  
+  // Get the icon for each category
+  const getCategoryIcon = (category: string) => {
+    switch(category) {
+      case 'donation':
+        return <Droplet className="h-4 w-4" />;
+      case 'medical':
+        return <Heart className="h-4 w-4" />;
+      case 'logistics':
+        return <MapPin className="h-4 w-4" />;
+      case 'about':
+        return <Info className="h-4 w-4" />;
+      default:
+        return <HelpCircle className="h-4 w-4" />;
+    }
   };
   
   return (
@@ -331,30 +421,107 @@ export const Chatbot = () => {
                       <div className="max-w-[80%] px-4 py-2 rounded-lg bg-gray-100 text-gray-800 rounded-bl-none">
                         <div className="flex space-x-1 items-center">
                           <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
-                          <span className="text-sm text-gray-500 ml-2">AI assistant is thinking...</span>
+                          <span className="text-sm text-gray-500 ml-2">Thinking...</span>
                         </div>
                       </div>
                     </div>
                   )}
                   
-                  {/* Question suggestions */}
+                  {/* Question suggestions with tabs for categories */}
                   {showSuggestions && messages.length < 4 && !isLoading && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="flex items-center mb-2">
                         <HelpCircle className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-500">Suggested questions:</span>
+                        <span className="text-sm text-gray-500">I can help with these topics:</span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {suggestedQuestions.map((question, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestedQuestionClick(question)}
-                            className="text-sm px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                      <Tabs defaultValue="donation" className="w-full">
+                        <TabsList className="grid grid-cols-4 mb-2">
+                          <TabsTrigger 
+                            value="donation" 
+                            onClick={() => handleCategoryChange("donation")}
+                            className="flex items-center justify-center"
                           >
-                            {question}
-                          </button>
-                        ))}
-                      </div>
+                            <Droplet className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Donate</span>
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="medical" 
+                            onClick={() => handleCategoryChange("medical")}
+                            className="flex items-center justify-center"
+                          >
+                            <Heart className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Medical</span>
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="logistics" 
+                            onClick={() => handleCategoryChange("logistics")}
+                            className="flex items-center justify-center"
+                          >
+                            <MapPin className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Logistics</span>
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="about" 
+                            onClick={() => handleCategoryChange("about")}
+                            className="flex items-center justify-center"
+                          >
+                            <Info className="h-3 w-3 mr-1" />
+                            <span className="text-xs">About</span>
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="donation" className="mt-0">
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedQuestions.donation.map((question, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSuggestedQuestionClick(question)}
+                                className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="medical" className="mt-0">
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedQuestions.medical.map((question, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSuggestedQuestionClick(question)}
+                                className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="logistics" className="mt-0">
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedQuestions.logistics.map((question, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSuggestedQuestionClick(question)}
+                                className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="about" className="mt-0">
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedQuestions.about.map((question, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSuggestedQuestionClick(question)}
+                                className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
                     </div>
                   )}
                 </div>
@@ -364,7 +531,7 @@ export const Chatbot = () => {
               <form onSubmit={handleSendMessage} className="flex w-full space-x-2">
                 <Input
                   type="text"
-                  placeholder="Type your message..."
+                  placeholder="Type your question..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-grow"

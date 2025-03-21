@@ -172,17 +172,17 @@ export const Hero = () => {
                 }}
               />
               
-              {/* Blood Drop Icon */}
+              {/* Blood Drop Icon - Made larger */}
               <motion.div 
                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
                 animate="pulse"
                 variants={bloodDropVariants}
               >
-                <Droplet className="w-24 h-24 sm:w-32 sm:h-32 text-bloodRed-600 fill-bloodRed-500" />
+                <Droplet className="w-32 h-32 sm:w-40 sm:h-40 text-bloodRed-600 fill-bloodRed-500" />
                 
-                {/* Blood Type Display */}
+                {/* Blood Type Display - Changed to black background */}
                 <motion.div 
-                  className="bg-white shadow-md rounded-lg px-6 py-3 mt-4 font-bold text-xl"
+                  className="bg-black text-white shadow-md rounded-lg px-8 py-4 mt-4 font-bold text-2xl"
                   key={currentBloodType}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
