@@ -212,8 +212,61 @@ export const Chatbot = () => {
       return "After collection, your donated blood goes through several important steps:\n\n1️⃣ Testing for infectious diseases and blood typing\n2️⃣ Processing into components (red cells, platelets, plasma)\n3️⃣ Storage under carefully controlled conditions\n4️⃣ Distribution to hospitals based on need\n5️⃣ Transfusion to patients\n\nEvery donation is thoroughly tested for HIV, hepatitis B and C, West Nile virus, and other pathogens. Your blood type is also confirmed. This entire process usually takes 1-3 days before blood is available for patients.";
     }
     
-    // Default response for anything else with helpful suggestions
-    return "I'm not quite sure how to help with that specific question. Could you rephrase or try asking about:\n\n• Donation eligibility requirements\n• The donation process and what to expect\n• How to prepare for donation\n• How often you can donate\n• Blood types and compatibility\n• Post-donation care\n• Scheduling an appointment\n\nOr click one of the suggested questions below.";
+    // EXPANDED GENERAL TOPICS
+    
+    // Health conditions and medications
+    if (input.includes("medication") || input.includes("health condition") || input.includes("disease") || 
+        input.includes("illness") || input.includes("sick") || input.includes("medical") ||
+        input.includes("diabetes") || input.includes("high blood pressure") || input.includes("anemia")) {
+      return "Some health conditions and medications may affect eligibility to donate blood:\n\n✅ Controlled conditions like high blood pressure or diabetes are often acceptable\n✅ Asthma is generally acceptable if not having an attack\n✅ Many prescription medications are fine (blood pressure, thyroid, etc.)\n\n❌ You should not donate if you're feeling ill or have a fever\n❌ Some medications require a waiting period (like antibiotics or blood thinners)\n❌ Conditions that affect blood clotting may disqualify you\n\nFor specific conditions or medications, please consult with donation staff who can provide personalized guidance. Would you like to know about a specific condition or medication?";
+    }
+    
+    // COVID-19 related questions
+    if (input.includes("covid") || input.includes("coronavirus") || input.includes("vaccine") || 
+        input.includes("vaccination") || input.includes("pandemic") || input.includes("booster")) {
+      return "Regarding COVID-19 and blood donation:\n\n✅ You can donate after receiving a COVID-19 vaccine with no waiting period for most vaccines\n✅ If you've had COVID-19, you can donate once you've fully recovered and are symptom-free for 14 days\n✅ Donation centers follow strict safety protocols including enhanced cleaning\n✅ Staff and donors are typically screened for symptoms\n\nYour donation is especially important during the pandemic as blood supplies have been affected by decreased donations. Blood donation is considered an essential activity, and centers have implemented safety measures to protect donors.";
+    }
+    
+    // Different types of donations
+    if (input.includes("types of donation") || input.includes("whole blood") || input.includes("plasma") || 
+        input.includes("platelets") || input.includes("double red") || input.includes("apheresis")) {
+      return "There are several types of blood donations:\n\n🩸 Whole Blood: Most common, takes about 10 minutes, all blood components collected\n🩸 Power Red/Double Red: Collects two units of red cells, returns plasma and platelets, takes 30 minutes\n🩸 Platelets: Takes 1.5-2 hours, platelets collected while returning other components, can donate every 7 days\n🩸 Plasma: Takes about 1 hour, plasma collected while returning red cells, can donate every 28 days\n\nThe type that's best for you depends on your blood type, eligibility factors, and local patient needs. Would you like to know which donation type might be best for you?";
+    }
+    
+    // Iron and hemoglobin questions
+    if (input.includes("iron") || input.includes("hemoglobin") || input.includes("anemic") || 
+        input.includes("low iron") || input.includes("ferritin") || input.includes("hematocrit")) {
+      return "Iron levels are important for blood donation eligibility:\n\n✅ Minimum hemoglobin levels are 12.5 g/dL for women and 13.0 g/dL for men\n✅ You can boost iron by eating red meat, seafood, beans, dark leafy greens\n✅ Vitamin C helps iron absorption (try eating citrus with iron-rich foods)\n\n❌ Frequent donation can deplete iron stores\n❌ Some donors may benefit from iron supplements (consult your doctor)\n\nYour iron levels will be checked before each donation with a quick fingerstick test. If levels are too low, you'll be temporarily deferred but can try again once your levels improve.";
+    }
+    
+    // First-time donor questions
+    if (input.includes("first time") || input.includes("never donated") || input.includes("nervous") || 
+        input.includes("scared") || input.includes("anxiety") || input.includes("what to expect")) {
+      return "For first-time donors, here's what to expect:\n\n1️⃣ Registration: Bring ID and answer health questions\n2️⃣ Mini-physical: Quick check of temperature, pulse, blood pressure, and hemoglobin\n3️⃣ Donation: Seated comfortably while about a pint of blood is collected (8-10 minutes)\n4️⃣ Refreshments: Enjoy snacks and drinks for 15 minutes before leaving\n\nTips for success:\n• Hydrate well before your appointment\n• Eat a healthy meal\n• Wear a short-sleeved shirt or one with sleeves that roll up easily\n• Let staff know it's your first time - they'll take extra care with you\n• Bring a friend for support\n\nIt's normal to be nervous, but most people find it easier than expected!";
+    }
+    
+    // Student and youth donors
+    if (input.includes("student") || input.includes("school") || input.includes("college") || 
+        input.includes("university") || input.includes("teen") || input.includes("young") ||
+        input.includes("high school") || input.includes("age")) {
+      return "For young and student donors:\n\n✅ Minimum age is 16 in most states (with parental consent) or 17 without consent\n✅ Weight requirements apply (typically minimum 110 pounds)\n✅ High school and college blood drives provide ~20% of all donations\n✅ Special considerations for young donors include height/weight requirements\n\nSchools often host blood drives, making it convenient for students to donate. Some tips for young donors:\n• Hydrate very well before donating\n• Eat a full, healthy meal\n• Consider having a parent or friend with you\n• Plan for a lighter schedule after donating (avoid strenuous activities)\n\nYour donation can help establish a lifelong habit of giving!";
+    }
+
+    // General healthcare questions
+    if (input.includes("doctor") || input.includes("hospital") || input.includes("healthcare") || 
+        input.includes("medical help") || input.includes("emergency") || input.includes("sick")) {
+      return "If you're experiencing a medical emergency, please call emergency services (911 in the US) immediately.\n\nIf you're looking for general healthcare information:\n\n• For non-urgent medical questions, consult your primary care physician\n• Many health insurance companies have nurse advice lines available 24/7\n• Local urgent care centers can help with immediate non-emergency concerns\n• Public health departments offer various health services and information\n\nPlease note that while I can provide general information about blood donation, I'm not qualified to give medical advice for specific health conditions. Would you like information about a specific blood donation-related topic instead?";
+    }
+
+    // Needle phobia or fear
+    if (input.includes("needle") || input.includes("afraid") || input.includes("fear") || 
+        input.includes("phobia") || input.includes("faint") || input.includes("pass out") ||
+        input.includes("scared of") || input.includes("pain")) {
+      return "It's completely normal to be concerned about needles. Here are some tips that might help:\n\n• Tell the staff it's a concern - they're experienced with nervous donors\n• Look away during needle insertion - bring a friend to chat with\n• Practice deep breathing exercises before and during donation\n• Eat well and stay hydrated before donating\n• The actual needle sensation is brief - many compare it to a quick pinch\n• Bring something distracting like music or a video to watch\n• Remember why you're donating - your temporary discomfort saves lives\n\nMany people with needle anxiety still donate successfully. The staff will make sure you're comfortable and can stop the process if needed.";
+    }
+    
+    // Catch-all response for anything not specifically matched
+    return "I understand you're asking about \"" + userInput + "\". While I'm programmed to answer many blood donation questions, I can provide more specific information if you ask about:\n\n• Donation eligibility and requirements\n• The donation process and what to expect\n• Different types of donations (whole blood, platelets, etc.)\n• Post-donation care and recovery\n• Benefits of donating blood\n• Blood types and compatibility\n• Frequency of donation\n• Health conditions and medication impacts\n• COVID-19 and donation\n• First-time donor information\n\nCould you provide more details about what you'd like to know?";
   };
   
   const formatTime = (date: Date) => {
