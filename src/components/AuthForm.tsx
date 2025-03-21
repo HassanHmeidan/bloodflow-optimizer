@@ -1,19 +1,15 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle, Building } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { login, register } from "@/lib/auth";
+import { UserRole } from "@/lib/roles";
 
 type AuthMode = 'login' | 'register';
-type UserRole = 'donor' | 'hospital' | 'admin';
-
-// Admin credentials
-const ADMIN_EMAIL = "admin@lifeflow.com";
-const ADMIN_PASSWORD = "admin123";
 
 export const AuthForm = () => {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -57,43 +53,38 @@ export const AuthForm = () => {
     e.preventDefault();
     
     if (mode === 'register' && formData.password !== formData.confirmPassword) {
-      toast.error("Passwords don't match", {
-        description: "Please make sure both passwords are identical.",
-      });
       return;
     }
     
     setLoading(true);
     
-    // Check for admin login
-    if (mode === 'login' && formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
-      localStorage.setItem('authToken', 'admin-token');
-      localStorage.setItem('userRole', 'admin');
-      toast.success("Admin login successful!", {
-        description: "Welcome to the LifeFlow admin dashboard.",
-      });
-      navigate('/dashboard');
-      setLoading(false);
-      return;
-    }
-    
-    setTimeout(() => {
+    try {
       if (mode === 'login') {
-        localStorage.setItem('authToken', 'mock-token');
-        localStorage.setItem('userRole', userRole);
-        toast.success("Login successful!", {
-          description: "Welcome back to LifeFlow.",
-        });
-        navigate('/dashboard');
+        const success = await login(formData.email, formData.password, userRole);
+        if (success) {
+          navigate('/dashboard');
+        }
       } else {
-        toast.success("Registration successful!", {
-          description: "Please check your email to verify your account.",
-        });
-        setMode('login');
+        const success = await register(
+          formData.name,
+          formData.email,
+          formData.password,
+          userRole
+        );
+        if (success) {
+          setMode('login');
+          setFormData(prev => ({
+            ...prev,
+            password: '',
+            confirmPassword: '',
+          }));
+        }
       }
-      
+    } catch (error) {
+      console.error('Authentication error:', error);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   // Animation variants
@@ -254,7 +245,7 @@ export const AuthForm = () => {
             </div>
           )}
           
-          {mode === 'register' && (
+          {(mode === 'register' || mode === 'login') && (
             <div className="space-y-2">
               <Label>I am a:</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -279,7 +270,7 @@ export const AuthForm = () => {
                   `}
                   onClick={() => setUserRole('hospital')}
                 >
-                  <Heart className="h-4 w-4 mb-1" />
+                  <Building className="h-4 w-4 mb-1" />
                   <span className="text-xs font-medium">Hospital</span>
                 </Button>
               </div>
@@ -322,13 +313,16 @@ export const AuthForm = () => {
       <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start">
         <AlertCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
-          <p className="font-medium">Demo Application</p>
-          <p className="mt-1">This is a demonstration. No actual authentication is performed.</p>
-          {mode === 'login' && (
-            <p className="mt-1">
-              <strong>Admin Login:</strong> admin@lifeflow.com / admin123
-            </p>
-          )}
+          <p className="font-medium">Demo Credentials</p>
+          <p className="mt-1">
+            <strong>Admin:</strong> admin@lifeflow.com / admin123
+          </p>
+          <p className="mt-1">
+            <strong>Hospital:</strong> hospital@lifeflow.com / hospital123
+          </p>
+          <p className="mt-1">
+            <strong>Donor:</strong> Any email with 6+ character password
+          </p>
         </div>
       </div>
     </div>

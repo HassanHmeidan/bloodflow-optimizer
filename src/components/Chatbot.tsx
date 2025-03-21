@@ -152,10 +152,11 @@ export const Chatbot = () => {
         };
         
         setMessages(prev => [...prev, botMessage]);
-        
-        // Show suggestions again after bot responds
-        setTimeout(() => setShowSuggestions(true), 500);
       }
+      
+      // Always show suggestions after bot responds - MODIFIED HERE
+      setTimeout(() => setShowSuggestions(true), 500);
+      
     } catch (error) {
       console.error("Error generating AI response:", error);
       const errorMessage: Message = {
@@ -427,12 +428,12 @@ export const Chatbot = () => {
                     </div>
                   )}
                   
-                  {/* Question suggestions with tabs for categories */}
-                  {showSuggestions && messages.length < 4 && !isLoading && (
+                  {/* Question suggestions with tabs for categories - MODIFIED to always show after first message */}
+                  {showSuggestions && !isLoading && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <div className="flex items-center mb-2">
                         <HelpCircle className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-500">I can help with these topics:</span>
+                        <span className="text-sm text-gray-500">More questions you can ask:</span>
                       </div>
                       <Tabs defaultValue="donation" className="w-full">
                         <TabsList className="grid grid-cols-4 mb-2">
@@ -553,3 +554,4 @@ export const Chatbot = () => {
     </>
   );
 };
+

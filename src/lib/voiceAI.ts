@@ -1,6 +1,6 @@
 
-// Placeholder for ElevenLabs voice AI integration
-// In a real implementation, this would connect to the ElevenLabs API
+// ElevenLabs voice AI integration
+// This connects to the ElevenLabs API for text-to-speech functionality
 
 type VoiceConfig = {
   voiceId: string;
@@ -41,19 +41,37 @@ export const textToSpeech = async (
     // Merge default config with any custom voice settings
     const voice = { ...elevenLabsConfig.defaultVoice, ...voiceConfig };
     
-    // In a real implementation, this would make an API call to ElevenLabs
-    console.log(`Would convert to speech: "${text}" using voice ID ${voice.voiceId}`);
+    // Make a real API call to ElevenLabs
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.voiceId}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': elevenLabsConfig.apiKey
+      },
+      body: JSON.stringify({
+        text,
+        model_id: voice.model,
+        voice_settings: {
+          stability: voice.stability,
+          similarity_boost: voice.similarityBoost,
+          use_speaker_boost: voice.useSpeakerBoost
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("ElevenLabs API error:", error);
+      return null;
+    }
+
+    // Convert the response to a blob and create a URL
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
     
-    // This is a placeholder for the actual API implementation
-    // In a real app, we would:
-    // 1. Make a fetch request to ElevenLabs API
-    // 2. Get back the audio data
-    // 3. Create an audio element and return it
-    
-    // Simulate successful API call with a dummy audio element
-    const audio = new Audio();
-    // audio.src = "URL to audio would go here from API response";
-    
+    // Create and return the audio element
+    const audio = new Audio(audioUrl);
     return audio;
   } catch (error) {
     console.error("Error converting text to speech:", error);
@@ -79,14 +97,66 @@ export const initializeVoiceAI = (apiKey: string): boolean => {
   }
 };
 
-// Function to get available voices (in a real app, this would call the API)
+// Function to get available voices (real API call)
 export const getAvailableVoices = async (): Promise<{ id: string, name: string }[]> => {
-  // This would normally fetch from the API
-  return [
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria" },
-    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
-    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
-    { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura" },
-    { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie" }
-  ];
+  if (!elevenLabsConfig.apiKey) {
+    return [
+      { id: "9BWtsMINqrJLrRacOk9x", name: "Aria" },
+      { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
+      { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
+      { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura" },
+      { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie" }
+    ];
+  }
+  
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'xi-api-key': elevenLabsConfig.apiKey
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch voices');
+    }
+    
+    const data = await response.json();
+    return data.voices.map((voice: any) => ({
+      id: voice.voice_id,
+      name: voice.name
+    }));
+  } catch (error) {
+    console.error("Error fetching voices:", error);
+    // Return default voices on error
+    return [
+      { id: "9BWtsMINqrJLrRacOk9x", name: "Aria" },
+      { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
+      { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
+      { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura" },
+      { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie" }
+    ];
+  }
+};
+
+// Function to speak a text immediately
+export const speak = async (text: string): Promise<void> => {
+  const audio = await textToSpeech(text);
+  if (audio) {
+    audio.play();
+  }
+};
+
+// Function to create a natural-sounding pause
+export const createPause = (seconds: number = 1): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+};
+
+// Function to read a series of text chunks with pauses in between
+export const readSequence = async (textChunks: string[], pauseSeconds: number = 0.5): Promise<void> => {
+  for (const chunk of textChunks) {
+    await speak(chunk);
+    await createPause(pauseSeconds);
+  }
 };
