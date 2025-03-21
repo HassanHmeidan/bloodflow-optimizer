@@ -1,11 +1,12 @@
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ArrowRight, Droplet } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { motion } from 'framer-motion';
 
 export const Hero = () => {
+  const navigate = useNavigate();
   // Blood types animation state
   const [currentBloodType, setCurrentBloodType] = useState(0);
   const bloodTypes = ['A+', 'B+', 'AB+', 'O+', 'A-', 'B-', 'AB-', 'O-'];
@@ -54,6 +55,15 @@ export const Hero = () => {
         ease: "easeInOut"
       }
     }
+  };
+
+  // Handle button clicks
+  const handleDonateClick = () => {
+    navigate('/donate');
+  };
+
+  const handleRequestClick = () => {
+    navigate('/request');
   };
 
   return (
@@ -124,11 +134,18 @@ export const Hero = () => {
               className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
               variants={itemVariants}
             >
-              <Button className="bg-bloodRed-600 hover:bg-bloodRed-700 text-white font-medium px-6 py-6 h-auto">
+              <Button 
+                className="bg-bloodRed-600 hover:bg-bloodRed-700 text-white font-medium px-6 py-6 h-auto"
+                onClick={handleDonateClick}
+              >
                 Donate Now
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button variant="outline" className="border-bloodRed-200 text-bloodRed-800 hover:bg-bloodRed-50 font-medium px-6 py-6 h-auto">
+              <Button 
+                variant="outline" 
+                className="border-bloodRed-200 text-bloodRed-800 hover:bg-bloodRed-50 font-medium px-6 py-6 h-auto"
+                onClick={handleRequestClick}
+              >
                 Request Blood
               </Button>
             </motion.div>

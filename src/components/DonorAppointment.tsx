@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,15 @@ export const DonorAppointment = () => {
   const [location, setLocation] = useState<string>("");
   const [timeSlot, setTimeSlot] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [appointments, setAppointments] = useState<any[]>([]);
+
+  // Load existing appointments from localStorage
+  useEffect(() => {
+    const savedAppointments = localStorage.getItem('appointments');
+    if (savedAppointments) {
+      setAppointments(JSON.parse(savedAppointments));
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,58 +52,47 @@ export const DonorAppointment = () => {
     
     setLoading(true);
     
-    // Mock API call to Python backend
-    // In a real implementation, this would be a fetch to your Python backend
-    fetch('https://api.example.com/appointments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        date: format(date, "yyyy-MM-dd"),
-        location,
-        timeSlot,
-        userId: localStorage.getItem('userId') || 'anonymous'
-      }),
-    })
-    .then(response => {
-      // Since we don't have an actual backend, we'll simulate a successful response
-      if (!response.ok && false) { // Always proceed as if successful for demo
-        throw new Error('Failed to schedule appointment');
+    // Simulate an API call to our Python backend
+    setTimeout(() => {
+      try {
+        // Create new appointment object
+        const newAppointment = {
+          id: Date.now(),
+          date: format(date, "yyyy-MM-dd"),
+          formattedDate: format(date, "MMMM d, yyyy"),
+          location,
+          timeSlot,
+          status: 'confirmed'
+        };
+        
+        // Update state and localStorage
+        const updatedAppointments = [...appointments, newAppointment];
+        setAppointments(updatedAppointments);
+        localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+        
+        // Show success message
+        toast.success("Appointment scheduled successfully!", {
+          description: `Your appointment is set for ${format(date, "MMMM d, yyyy")} at ${timeSlot}, ${location}.`
+        });
+        
+        // Reset form
+        setDate(undefined);
+        setLocation("");
+        setTimeSlot("");
+        
+        // Dispatch a custom event for the Dashboard to reload appointments
+        window.dispatchEvent(new CustomEvent('appointmentScheduled', { 
+          detail: newAppointment 
+        }));
+      } catch (error) {
+        console.error("Error scheduling appointment:", error);
+        toast.error("Failed to schedule appointment", {
+          description: "An unexpected error occurred. Please try again."
+        });
+      } finally {
+        setLoading(false);
       }
-      
-      // For demo purposes, we'll just simulate a successful response
-      return { success: true };
-    })
-    .then(data => {
-      toast.success("Appointment scheduled successfully!", {
-        description: `Your appointment is set for ${format(date, "MMMM d, yyyy")} at ${timeSlot}, ${location}.`
-      });
-      
-      // Save appointment to localStorage for demo purposes
-      const appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
-      appointments.push({
-        id: Date.now(),
-        date: format(date, "yyyy-MM-dd"),
-        formattedDate: format(date, "MMMM d, yyyy"),
-        location,
-        timeSlot
-      });
-      localStorage.setItem('appointments', JSON.stringify(appointments));
-      
-      // Reset form
-      setDate(undefined);
-      setLocation("");
-      setTimeSlot("");
-    })
-    .catch(error => {
-      toast.error("Failed to schedule appointment", {
-        description: error.message
-      });
-    })
-    .finally(() => {
-      setLoading(false);
-    });
+    }, 1500); // Simulate network delay
   };
   
   return (

@@ -12,6 +12,7 @@ import Donate from "./pages/Donate";
 import Request from "./pages/Request";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import { Chatbot } from "./components/Chatbot";
 
 // This frontend connects to a Python backend API
 // The backend would typically be built with frameworks like:
@@ -44,6 +45,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <Chatbot />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

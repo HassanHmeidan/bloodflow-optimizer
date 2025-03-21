@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, X, Bot } from 'lucide-react';
+import { MessageCircle, Send, X, Bot, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 type Message = {
   id: number;
@@ -23,6 +24,7 @@ const initialMessages: Message[] = [
 ];
 
 export const Chatbot = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
@@ -37,7 +39,7 @@ export const Chatbot = () => {
     }
   }, [messages]);
   
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
     if (!inputValue.trim()) return;
@@ -54,56 +56,121 @@ export const Chatbot = () => {
     setInputValue('');
     setIsLoading(true);
     
-    // Simulate API call to Python backend for chatbot response
-    setTimeout(() => {
-      // Predefined responses for demo
-      const possibleResponses = [
-        "Donating blood typically takes about 10-15 minutes, but you should plan for an hour to account for registration and health checks.",
-        "Yes, you must be at least 17 years old to donate blood in most states.",
-        "You should drink plenty of water and eat a healthy meal before donating blood.",
-        "Most people can donate blood every 56 days (8 weeks).",
-        "A single blood donation can save up to three lives!",
-        "To be eligible for donation, you must weigh at least 110 pounds and be in good general health.",
-        "You can schedule an appointment through our website or by calling your local blood center.",
-        "Yes, there is always a high need for O negative blood as it's the universal donor type.",
-        "After donation, we recommend having a snack and drink provided at the donation center and avoiding strenuous activity for the rest of the day."
-      ];
+    // Here we would make an API call to the Python backend
+    // For now, we'll simulate the AI response with a more intelligent approach
+    try {
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Get a contextual response based on keywords in the user's message
-      let botResponse = "I'm not sure I understand. Could you rephrase your question about blood donation?";
+      // Generate an AI response based on the user's input
+      const aiResponse = generateAIResponse(userMessage.text);
       
-      const userMessageLower = userMessage.text.toLowerCase();
-      
-      if (userMessageLower.includes("time") || userMessageLower.includes("long") || userMessageLower.includes("take")) {
-        botResponse = possibleResponses[0];
-      } else if (userMessageLower.includes("age") || userMessageLower.includes("old enough") || userMessageLower.includes("years old")) {
-        botResponse = possibleResponses[1];
-      } else if (userMessageLower.includes("prepare") || userMessageLower.includes("before") || userMessageLower.includes("ready")) {
-        botResponse = possibleResponses[2];
-      } else if (userMessageLower.includes("how often") || userMessageLower.includes("when again") || userMessageLower.includes("next time")) {
-        botResponse = possibleResponses[3];
-      } else if (userMessageLower.includes("help") || userMessageLower.includes("save") || userMessageLower.includes("impact")) {
-        botResponse = possibleResponses[4];
-      } else if (userMessageLower.includes("eligib") || userMessageLower.includes("require") || userMessageLower.includes("can i donate")) {
-        botResponse = possibleResponses[5];
-      } else if (userMessageLower.includes("schedule") || userMessageLower.includes("appointment") || userMessageLower.includes("book")) {
-        botResponse = possibleResponses[6];
-      } else if (userMessageLower.includes("o") || userMessageLower.includes("type") || userMessageLower.includes("need")) {
-        botResponse = possibleResponses[7];
-      } else if (userMessageLower.includes("after") || userMessageLower.includes("done") || userMessageLower.includes("donated")) {
-        botResponse = possibleResponses[8];
+      // Check if the response includes a navigation command
+      if (aiResponse.includes("[NAVIGATE:")) {
+        const route = aiResponse.match(/\[NAVIGATE:(.*?)\]/)?.[1];
+        if (route) {
+          const cleanResponse = aiResponse.replace(/\[NAVIGATE:.*?\]/, "").trim();
+          
+          // Add the response
+          const botMessage: Message = {
+            id: Date.now(),
+            text: cleanResponse,
+            isUser: false,
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, botMessage]);
+          
+          // Wait a moment before navigating
+          setTimeout(() => {
+            navigate(route);
+          }, 1000);
+        }
+      } else {
+        // Regular response
+        const botMessage: Message = {
+          id: Date.now(),
+          text: aiResponse,
+          isUser: false,
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, botMessage]);
       }
-      
-      const botMessage: Message = {
+    } catch (error) {
+      console.error("Error generating AI response:", error);
+      const errorMessage: Message = {
         id: Date.now(),
-        text: botResponse,
+        text: "I'm sorry, I encountered an error. Please try again.",
         isUser: false,
         timestamp: new Date()
       };
-      
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
+  };
+  
+  const generateAIResponse = (userInput: string): string => {
+    // Convert to lowercase for easier matching
+    const input = userInput.toLowerCase();
+    
+    // Looking for appointment-related keywords
+    if (input.includes("schedule") || input.includes("appointment") || input.includes("donate") || 
+        input.includes("book") || input.includes("when can i") || input.includes("how to donate")) {
+      return "I'd be happy to help you schedule a blood donation appointment! You can visit our donation page to set up a time and location that works for you. [NAVIGATE:/donate]";
+    }
+    
+    // Looking for blood request keywords
+    if (input.includes("need blood") || input.includes("request blood") || input.includes("get blood") || 
+        input.includes("blood for patient") || input.includes("emergency")) {
+      return "If you need to request blood for a patient, you can submit a request through our dedicated page. Let me take you there. [NAVIGATE:/request]";
+    }
+    
+    // Looking for eligibility keywords
+    if (input.includes("eligible") || input.includes("can i donate") || input.includes("requirement") || 
+        input.includes("qualification") || input.includes("allowed to")) {
+      return "To be eligible for donation, you must generally be at least 17 years old, weigh at least 110 pounds, and be in good general health. Specific requirements may vary based on your location and medical history. Would you like to check the full eligibility criteria?";
+    }
+    
+    // Looking for time-related questions
+    if (input.includes("how long") || input.includes("how much time") || input.includes("duration") || 
+        input.includes("take") || input.includes("minutes") || input.includes("hours")) {
+      return "The donation process itself usually takes about 8-10 minutes. However, you should plan for about an hour for the entire visit, which includes registration, a mini-physical, and refreshments after donation. Is there anything specific about the process you'd like to know?";
+    }
+    
+    // Looking for blood type related questions
+    if (input.includes("blood type") || input.includes("universal donor") || input.includes("universal recipient") || 
+        input.includes("common blood") || input.includes("rare blood") || input.includes("o negative") || input.includes("o positive") || input.includes("ab")) {
+      return "O-negative blood is considered the universal donor type, as it can be given to anyone regardless of their blood type. AB-positive is the universal recipient. The most common blood type is O-positive, while AB-negative is the rarest. Would you like to learn more about specific blood types?";
+    }
+    
+    // Looking for post-donation questions
+    if (input.includes("after") || input.includes("recovery") || input.includes("care") || 
+        input.includes("eat") || input.includes("drink") || input.includes("dizzy")) {
+      return "After donating, you should drink extra fluids, avoid strenuous activities for 24 hours, keep the bandage on for a few hours, and eat iron-rich foods. If you feel dizzy, lie down with your feet elevated. It's normal to feel slightly fatigued, but serious side effects are rare. Would you like more post-donation tips?";
+    }
+    
+    // Looking for blood facts or importance
+    if (input.includes("why") || input.includes("important") || input.includes("benefit") || 
+        input.includes("impact") || input.includes("save") || input.includes("help")) {
+      return "Every two seconds, someone in the U.S. needs blood. A single blood donation can save up to three lives! Blood is essential for surgeries, cancer treatments, chronic illnesses, and traumatic injuries. When you donate, you're directly helping people in your community who need it most. Would you like to know more about the impact of donations?";
+    }
+    
+    // Looking for about the organization
+    if (input.includes("about") || input.includes("lifeflow") || input.includes("who are you") || 
+        input.includes("organization") || input.includes("company")) {
+      return "LifeFlow is a blood donation management system that connects donors with patients efficiently and safely. We use technology to streamline the donation process and ensure blood gets to those who need it most. Would you like to learn more about us? [NAVIGATE:/about]";
+    }
+    
+    // Looking for login/account related questions
+    if (input.includes("login") || input.includes("sign in") || input.includes("account") || 
+        input.includes("register") || input.includes("profile")) {
+      return "You can access your account or create a new one through our authentication page. Let me take you there! [NAVIGATE:/auth]";
+    }
+    
+    // Default response for anything else
+    return "I'm not quite sure how to answer that. Could you rephrase your question about blood donation? Or you can ask me about donation eligibility, the donation process, scheduling an appointment, or blood types.";
   };
   
   const formatTime = (date: Date) => {
@@ -164,9 +231,8 @@ export const Chatbot = () => {
                     <div className="flex justify-start">
                       <div className="max-w-[80%] px-4 py-2 rounded-lg bg-gray-100 text-gray-800 rounded-bl-none">
                         <div className="flex space-x-1 items-center">
-                          <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                          <span className="text-sm text-gray-500 ml-2">AI assistant is thinking...</span>
                         </div>
                       </div>
                     </div>
