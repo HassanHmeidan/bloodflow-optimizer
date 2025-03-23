@@ -60,6 +60,16 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/dashboard/donors" element={<DonorManagementPage />} />
           <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
+          {/* Common redirect routes for the resources in footer */}
+          <Route path="/guidelines" element={<About />} />
+          <Route path="/blood-types" element={<About />} />
+          <Route path="/health-info" element={<About />} />
+          <Route path="/process" element={<Donate />} />
+          <Route path="/research" element={<About />} />
+          <Route path="/privacy" element={<About />} />
+          <Route path="/terms" element={<About />} />
+          <Route path="/cookies" element={<About />} />
+          <Route path="/faqs" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -5,6 +5,8 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { BloodRequestManagement } from "@/components/BloodRequestManagement";
 import { requireAuth, getUserRole } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 const BloodRequestsPage = () => {
   const navigate = useNavigate();
@@ -45,6 +47,14 @@ const BloodRequestsPage = () => {
                   View and manage all blood requests in the system
                 </p>
               </div>
+              <Button 
+                variant="outline" 
+                className="mt-4 md:mt-0 bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                onClick={() => navigate('/dashboard')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
             </div>
           </div>
         </div>

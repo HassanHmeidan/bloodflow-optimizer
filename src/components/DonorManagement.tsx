@@ -22,6 +22,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Donor {
   id: number;
@@ -177,6 +178,37 @@ export const DonorManagement = () => {
     setSelectedDonor(donor);
     setShowDonorDetails(true);
   };
+  
+  const handleExport = () => {
+    // Create CSV content
+    const headers = ["Name", "Email", "Blood Type", "Status", "Last Donation", "Phone", "Address", "Age"];
+    const csvContent = [
+      headers.join(','),
+      ...donors.map(donor => [
+        donor.name,
+        donor.email,
+        donor.bloodType,
+        donor.status,
+        donor.lastDonation,
+        donor.phone || 'N/A',
+        donor.address ? `"${donor.address.replace(/"/g, '""')}"` : 'N/A',
+        donor.age || 'N/A'
+      ].join(','))
+    ].join('\n');
+    
+    // Create a Blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'donors_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Donors data exported successfully");
+  };
 
   const filteredDonors = donors.filter(donor => {
     // Filter by search query
@@ -216,6 +248,14 @@ export const DonorManagement = () => {
           >
             <Filter className="h-4 w-4 mr-2" />
             Filter
+          </Button>
+          <Button 
+            variant="outline"
+            size="sm" 
+            className="h-9"
+            onClick={handleExport}
+          >
+            Export
           </Button>
           <Button 
             size="sm" 
@@ -370,76 +410,78 @@ export const DonorManagement = () => {
               Enter the details of the new donor. All fields marked with * are required.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input 
-                id="name" 
-                value={newDonor.name} 
-                onChange={(e) => setNewDonor({...newDonor, name: e.target.value})}
-                placeholder="John Doe"
-              />
+          <ScrollArea className="max-h-[70vh]">
+            <div className="space-y-4 py-4 px-1">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name *</Label>
+                <Input 
+                  id="name" 
+                  value={newDonor.name} 
+                  onChange={(e) => setNewDonor({...newDonor, name: e.target.value})}
+                  placeholder="John Doe"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={newDonor.email} 
+                  onChange={(e) => setNewDonor({...newDonor, email: e.target.value})}
+                  placeholder="john@example.com"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="bloodType">Blood Type *</Label>
+                <Select 
+                  value={newDonor.bloodType} 
+                  onValueChange={(value) => setNewDonor({...newDonor, bloodType: value})}
+                >
+                  <SelectTrigger id="bloodType">
+                    <SelectValue placeholder="Select blood type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input 
+                  id="phone" 
+                  value={newDonor.phone} 
+                  onChange={(e) => setNewDonor({...newDonor, phone: e.target.value})}
+                  placeholder="555-123-4567"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input 
+                  id="address" 
+                  value={newDonor.address} 
+                  onChange={(e) => setNewDonor({...newDonor, address: e.target.value})}
+                  placeholder="123 Main St, City, State, Zip"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="age">Age</Label>
+                <Input 
+                  id="age" 
+                  type="number" 
+                  value={newDonor.age} 
+                  onChange={(e) => setNewDonor({...newDonor, age: e.target.value})}
+                  placeholder="30"
+                />
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={newDonor.email} 
-                onChange={(e) => setNewDonor({...newDonor, email: e.target.value})}
-                placeholder="john@example.com"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="bloodType">Blood Type *</Label>
-              <Select 
-                value={newDonor.bloodType} 
-                onValueChange={(value) => setNewDonor({...newDonor, bloodType: value})}
-              >
-                <SelectTrigger id="bloodType">
-                  <SelectValue placeholder="Select blood type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input 
-                id="phone" 
-                value={newDonor.phone} 
-                onChange={(e) => setNewDonor({...newDonor, phone: e.target.value})}
-                placeholder="555-123-4567"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input 
-                id="address" 
-                value={newDonor.address} 
-                onChange={(e) => setNewDonor({...newDonor, address: e.target.value})}
-                placeholder="123 Main St, City, State, Zip"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="age">Age</Label>
-              <Input 
-                id="age" 
-                type="number" 
-                value={newDonor.age} 
-                onChange={(e) => setNewDonor({...newDonor, age: e.target.value})}
-                placeholder="30"
-              />
-            </div>
-          </div>
+          </ScrollArea>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
@@ -460,56 +502,58 @@ export const DonorManagement = () => {
                   Detailed information for {selectedDonor.name}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Full Name</h3>
-                    <p>{selectedDonor.name}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Email</h3>
-                    <p>{selectedDonor.email}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
-                    <p className="inline-flex bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
-                      {selectedDonor.bloodType}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                    <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                      selectedDonor.status === 'active' 
-                        ? 'bg-green-50 text-green-700' 
-                        : selectedDonor.status === 'pending'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-red-50 text-red-700'
-                    }`}>
-                      {selectedDonor.status.charAt(0).toUpperCase() + selectedDonor.status.slice(1)}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-                    <p>{selectedDonor.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Age</h3>
-                    <p>{selectedDonor.age || 'N/A'}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <h3 className="text-sm font-medium text-gray-500">Address</h3>
-                    <p>{selectedDonor.address || 'N/A'}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <h3 className="text-sm font-medium text-gray-500">Last Donation</h3>
-                    <p>{selectedDonor.lastDonation}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <h3 className="text-sm font-medium text-gray-500">Medical History</h3>
-                    <p>{selectedDonor.medicalHistory || 'No medical history available'}</p>
+              <ScrollArea className="max-h-[70vh]">
+                <div className="space-y-4 py-4 px-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Full Name</h3>
+                      <p>{selectedDonor.name}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Email</h3>
+                      <p>{selectedDonor.email}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
+                      <p className="inline-flex bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
+                        {selectedDonor.bloodType}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                      <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                        selectedDonor.status === 'active' 
+                          ? 'bg-green-50 text-green-700' 
+                          : selectedDonor.status === 'pending'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-red-50 text-red-700'
+                      }`}>
+                        {selectedDonor.status.charAt(0).toUpperCase() + selectedDonor.status.slice(1)}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Phone</h3>
+                      <p>{selectedDonor.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Age</h3>
+                      <p>{selectedDonor.age || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium text-gray-500">Address</h3>
+                      <p>{selectedDonor.address || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium text-gray-500">Last Donation</h3>
+                      <p>{selectedDonor.lastDonation}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium text-gray-500">Medical History</h3>
+                      <p>{selectedDonor.medicalHistory || 'No medical history available'}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ScrollArea>
               <DialogFooter>
                 <DialogClose asChild>
                   <Button>Close</Button>

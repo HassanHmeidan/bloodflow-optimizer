@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Search, FileText, Check, X, Filter, PlusCircle, Calendar, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Dialog, 
   DialogContent, 
@@ -298,11 +299,38 @@ export const BloodRequestManagement = () => {
   const handleExport = () => {
     setIsExporting(true);
     
-    // Simulate export process
+    // Create CSV content
+    const headers = ["Hospital", "Date", "Blood Type", "Units", "Urgency", "Status", "Requester", "Contact", "Notes"];
+    const csvContent = [
+      headers.join(','),
+      ...requests.map(request => [
+        request.hospital.replace(/,/g, ' '),
+        request.date,
+        request.bloodType,
+        request.units,
+        request.urgency,
+        request.status,
+        request.requester || 'N/A',
+        request.contactPhone || 'N/A',
+        request.notes ? `"${request.notes.replace(/"/g, '""')}"` : 'N/A'
+      ].join(','))
+    ].join('\n');
+    
+    // Create a Blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'blood_requests_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     setTimeout(() => {
       toast.success("Blood requests exported successfully");
       setIsExporting(false);
-    }, 1500);
+    }, 500);
   };
 
   const filteredRequests = requests.filter(request => {
@@ -535,70 +563,72 @@ export const BloodRequestManagement = () => {
                   Request from {selectedRequest.hospital} on {selectedRequest.date}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Hospital/Clinic</h3>
-                    <p>{selectedRequest.hospital}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Date Requested</h3>
-                    <p>{selectedRequest.date}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
-                    <p className="inline-flex bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
-                      {selectedRequest.bloodType}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Units Requested</h3>
-                    <p>{selectedRequest.units}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Urgency</h3>
-                    <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                      selectedRequest.urgency === 'normal' 
-                        ? 'bg-blue-50 text-blue-700' 
-                        : selectedRequest.urgency === 'urgent'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-red-50 text-red-700'
-                    }`}>
-                      {selectedRequest.urgency.charAt(0).toUpperCase() + selectedRequest.urgency.slice(1)}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                    <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                      selectedRequest.status === 'approved' 
-                        ? 'bg-green-50 text-green-700' 
-                        : selectedRequest.status === 'pending'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-red-50 text-red-700'
-                    }`}>
-                      {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
-                    </p>
-                  </div>
-                  {selectedRequest.requester && (
+              <ScrollArea className="max-h-[70vh]">
+                <div className="space-y-4 py-4 px-1">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
-                      <p>{selectedRequest.requester}</p>
+                      <h3 className="text-sm font-medium text-gray-500">Hospital/Clinic</h3>
+                      <p>{selectedRequest.hospital}</p>
                     </div>
-                  )}
-                  {selectedRequest.contactPhone && (
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500">Contact Phone</h3>
-                      <p>{selectedRequest.contactPhone}</p>
+                      <h3 className="text-sm font-medium text-gray-500">Date Requested</h3>
+                      <p>{selectedRequest.date}</p>
                     </div>
-                  )}
-                  {selectedRequest.notes && (
-                    <div className="col-span-2">
-                      <h3 className="text-sm font-medium text-gray-500">Additional Notes</h3>
-                      <p>{selectedRequest.notes}</p>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
+                      <p className="inline-flex bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
+                        {selectedRequest.bloodType}
+                      </p>
                     </div>
-                  )}
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Units Requested</h3>
+                      <p>{selectedRequest.units}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Urgency</h3>
+                      <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                        selectedRequest.urgency === 'normal' 
+                          ? 'bg-blue-50 text-blue-700' 
+                          : selectedRequest.urgency === 'urgent'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-red-50 text-red-700'
+                      }`}>
+                        {selectedRequest.urgency.charAt(0).toUpperCase() + selectedRequest.urgency.slice(1)}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                      <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                        selectedRequest.status === 'approved' 
+                          ? 'bg-green-50 text-green-700' 
+                          : selectedRequest.status === 'pending'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-red-50 text-red-700'
+                      }`}>
+                        {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
+                      </p>
+                    </div>
+                    {selectedRequest.requester && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
+                        <p>{selectedRequest.requester}</p>
+                      </div>
+                    )}
+                    {selectedRequest.contactPhone && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Contact Phone</h3>
+                        <p>{selectedRequest.contactPhone}</p>
+                      </div>
+                    )}
+                    {selectedRequest.notes && (
+                      <div className="col-span-2">
+                        <h3 className="text-sm font-medium text-gray-500">Additional Notes</h3>
+                        <p>{selectedRequest.notes}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
               <DialogFooter className="flex justify-between">
                 {selectedRequest.status === 'pending' && localStorage.getItem('userRole') === 'admin' && (
                   <div className="flex space-x-2">
