@@ -273,12 +273,12 @@ export const DonorManagement = () => {
         <div className="p-4 border rounded-md bg-gray-50 flex flex-wrap gap-4">
           <div className="space-y-1 w-40">
             <Label htmlFor="status-filter">Status</Label>
-            <Select value={filterStatus || ""} onValueChange={setFilterStatus}>
+            <Select value={filterStatus || "all"} onValueChange={setFilterStatus}>
               <SelectTrigger id="status-filter">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
@@ -288,12 +288,12 @@ export const DonorManagement = () => {
           
           <div className="space-y-1 w-40">
             <Label htmlFor="bloodtype-filter">Blood Type</Label>
-            <Select value={filterBloodType || ""} onValueChange={setFilterBloodType}>
+            <Select value={filterBloodType || "all"} onValueChange={setFilterBloodType}>
               <SelectTrigger id="bloodtype-filter">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All types</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
                 <SelectItem value="A+">A+</SelectItem>
                 <SelectItem value="A-">A-</SelectItem>
                 <SelectItem value="B+">B+</SelectItem>
