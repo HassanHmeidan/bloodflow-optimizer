@@ -36,6 +36,26 @@ import {
   Loader2
 } from 'lucide-react';
 
+// Notification system
+const setupNotificationListener = () => {
+  const handleNotification = (event: CustomEvent) => {
+    const { message, type } = event.detail;
+    
+    if (type === 'success') {
+      toast.success(message);
+    } else if (type === 'error') {
+      toast.error(message);
+    } else {
+      toast.info(message);
+    }
+  };
+
+  window.addEventListener('notification' as any, handleNotification);
+  return () => {
+    window.removeEventListener('notification' as any, handleNotification);
+  };
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -43,6 +63,13 @@ const Dashboard = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [donations, setDonations] = useState<any[]>([]);
   const [userName, setUserName] = useState<string>('');
+  const [adminData, setAdminData] = useState<any>(null);
+
+  // Set up notification listener
+  useEffect(() => {
+    const cleanup = setupNotificationListener();
+    return cleanup;
+  }, []);
 
   // Check for authentication
   useEffect(() => {
@@ -74,6 +101,33 @@ const Dashboard = () => {
         setDonations(JSON.parse(savedDonations));
       }
       
+      // Load admin data if role is admin
+      if (role === 'admin') {
+        const savedAdminData = localStorage.getItem('adminData');
+        if (savedAdminData) {
+          setAdminData(JSON.parse(savedAdminData));
+        } else {
+          // Initialize admin data if it doesn't exist
+          const initialAdminData = {
+            totalDonors: 1245,
+            totalRequests: 86,
+            pendingApprovals: 14,
+            lowStockAlerts: 3,
+            recentDonors: [
+              { name: 'John Smith', date: '2023-06-15', type: 'O+', status: 'pending' },
+              { name: 'Maria Garcia', date: '2023-06-14', type: 'AB+', status: 'approved' },
+              { name: 'David Lee', date: '2023-06-13', type: 'B-', status: 'pending' },
+            ],
+            recentRequests: [
+              { hospital: 'General Hospital', date: '2023-06-15', type: 'A+', units: 2, status: 'pending' },
+              { hospital: 'Children\'s Medical', date: '2023-06-14', type: 'O-', units: 5, status: 'approved' },
+            ]
+          };
+          localStorage.setItem('adminData', JSON.stringify(initialAdminData));
+          setAdminData(initialAdminData);
+        }
+      }
+      
       setLoading(false);
     };
     
@@ -101,7 +155,24 @@ const Dashboard = () => {
     };
   }, [appointments]);
 
-  // Mock data for the dashboard - only used for admin and hospital roles
+  // Update admin data when it changes in localStorage
+  useEffect(() => {
+    if (userRole === 'admin') {
+      const handleStorageChange = () => {
+        const savedAdminData = localStorage.getItem('adminData');
+        if (savedAdminData) {
+          setAdminData(JSON.parse(savedAdminData));
+        }
+      };
+      
+      window.addEventListener('storage', handleStorageChange);
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, [userRole]);
+
+  // Mock data for the dashboard - only used for donor
   const donorData = {
     nextEligibleDate: '2023-07-15',
     donationCount: donations.length || 0,
@@ -113,7 +184,8 @@ const Dashboard = () => {
     ]
   };
 
-  const hospitalData = {
+  // Hospital data - load from localStorage if available
+  const [hospitalData, setHospitalData] = useState({
     pendingRequests: 3,
     approvedRequests: 12,
     recentRequests: [
@@ -127,22 +199,154 @@ const Dashboard = () => {
       'O+': 30,
       'AB-': 20,
     }
+  });
+
+  // Update hospital data when blood requests change
+  useEffect(() => {
+    if (userRole === 'hospital') {
+      const storedRequests = localStorage.getItem('bloodRequests');
+      if (storedRequests) {
+        const requests = JSON.parse(storedRequests);
+        const hospitalName = localStorage.getItem('userName');
+        
+        // Filter requests for this hospital
+        const hospitalRequests = requests.filter((r: any) => r.hospital === hospitalName);
+        
+        setHospitalData({
+          ...hospitalData,
+          pendingRequests: hospitalRequests.filter((r: any) => r.status === 'pending').length,
+          approvedRequests: hospitalRequests.filter((r: any) => r.status === 'approved').length,
+          recentRequests: hospitalRequests.slice(0, 3).map((r: any) => ({
+            date: r.date,
+            type: r.bloodType,
+            units: r.units,
+            status: r.status
+          }))
+        });
+      }
+    }
+  }, [userRole, hospitalData]);
+
+  const handleApprove = (id: number, type: 'donor' | 'request') => {
+    if (type === 'donor') {
+      // Get the current admin data
+      const currentAdminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+      
+      // Find the donor in recentDonors
+      const donorIndex = currentAdminData.recentDonors.findIndex((d: any) => 
+        d.name === adminData.recentDonors[id].name && 
+        d.date === adminData.recentDonors[id].date
+      );
+      
+      if (donorIndex !== -1) {
+        // Update the donor status
+        currentAdminData.recentDonors[donorIndex].status = 'approved';
+        
+        // Update localStorage
+        localStorage.setItem('adminData', JSON.stringify(currentAdminData));
+        
+        // Update state
+        setAdminData(currentAdminData);
+        
+        // Update donor list in donor management
+        const donors = JSON.parse(localStorage.getItem('adminDonors') || '[]');
+        const donorToUpdate = donors.find((d: any) => d.name === adminData.recentDonors[id].name);
+        
+        if (donorToUpdate) {
+          donorToUpdate.status = 'approved';
+          localStorage.setItem('adminDonors', JSON.stringify(donors));
+        }
+        
+        toast.success(`Approved ${adminData.recentDonors[id].name}`);
+      }
+    } else {
+      // Get the current admin data
+      const currentAdminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+      
+      // Find the request in recentRequests
+      const requestIndex = currentAdminData.recentRequests.findIndex((r: any) => 
+        r.hospital === adminData.recentRequests[id].hospital && 
+        r.date === adminData.recentRequests[id].date
+      );
+      
+      if (requestIndex !== -1) {
+        // Update the request status
+        currentAdminData.recentRequests[requestIndex].status = 'approved';
+        
+        // Update localStorage
+        localStorage.setItem('adminData', JSON.stringify(currentAdminData));
+        
+        // Update state
+        setAdminData(currentAdminData);
+        
+        // Update request list in blood request management
+        const requests = JSON.parse(localStorage.getItem('bloodRequests') || '[]');
+        const requestToUpdate = requests.find((r: any) => 
+          r.hospital === adminData.recentRequests[id].hospital && 
+          r.date === adminData.recentRequests[id].date
+        );
+        
+        if (requestToUpdate) {
+          requestToUpdate.status = 'approved';
+          localStorage.setItem('bloodRequests', JSON.stringify(requests));
+        }
+        
+        toast.success(`Approved request from ${adminData.recentRequests[id].hospital}`);
+      }
+    }
   };
 
-  const adminData = {
-    totalDonors: 1245,
-    totalRequests: 86,
-    pendingApprovals: 14,
-    lowStockAlerts: 3,
-    recentDonors: [
-      { name: 'John Smith', date: '2023-06-15', type: 'O+', status: 'pending' },
-      { name: 'Maria Garcia', date: '2023-06-14', type: 'AB+', status: 'approved' },
-      { name: 'David Lee', date: '2023-06-13', type: 'B-', status: 'pending' },
-    ],
-    recentRequests: [
-      { hospital: 'General Hospital', date: '2023-06-15', type: 'A+', units: 2, status: 'pending' },
-      { hospital: 'Children\'s Medical', date: '2023-06-14', type: 'O-', units: 5, status: 'approved' },
-    ]
+  const handleReject = (id: number, type: 'donor' | 'request') => {
+    if (type === 'donor') {
+      // Get the current admin data
+      const currentAdminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+      
+      // Remove the donor from recentDonors
+      currentAdminData.recentDonors = currentAdminData.recentDonors.filter((_: any, index: number) => index !== id);
+      
+      // Update localStorage
+      localStorage.setItem('adminData', JSON.stringify(currentAdminData));
+      
+      // Update state
+      setAdminData(currentAdminData);
+      
+      // Update donor list in donor management
+      const donors = JSON.parse(localStorage.getItem('adminDonors') || '[]');
+      const donorToUpdate = donors.find((d: any) => d.name === adminData.recentDonors[id].name);
+      
+      if (donorToUpdate) {
+        donorToUpdate.status = 'rejected';
+        localStorage.setItem('adminDonors', JSON.stringify(donors));
+      }
+      
+      toast.error(`Rejected ${adminData.recentDonors[id].name}`);
+    } else {
+      // Get the current admin data
+      const currentAdminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+      
+      // Remove the request from recentRequests
+      currentAdminData.recentRequests = currentAdminData.recentRequests.filter((_: any, index: number) => index !== id);
+      
+      // Update localStorage
+      localStorage.setItem('adminData', JSON.stringify(currentAdminData));
+      
+      // Update state
+      setAdminData(currentAdminData);
+      
+      // Update request list in blood request management
+      const requests = JSON.parse(localStorage.getItem('bloodRequests') || '[]');
+      const requestToUpdate = requests.find((r: any) => 
+        r.hospital === adminData.recentRequests[id].hospital && 
+        r.date === adminData.recentRequests[id].date
+      );
+      
+      if (requestToUpdate) {
+        requestToUpdate.status = 'rejected';
+        localStorage.setItem('bloodRequests', JSON.stringify(requests));
+      }
+      
+      toast.error(`Rejected request from ${adminData.recentRequests[id].hospital}`);
+    }
   };
 
   const handleSignOut = () => {
@@ -513,10 +717,7 @@ const Dashboard = () => {
                       <Button 
                         variant="ghost" 
                         className="w-full justify-between"
-                        onClick={() => {
-                          navigate('/dashboard/requests');
-                          toast.info("This would show all blood requests");
-                        }}
+                        onClick={() => navigate('/dashboard/requests')}
                       >
                         View All Requests
                         <ChevronRight className="h-4 w-4 ml-1" />
@@ -592,7 +793,7 @@ const Dashboard = () => {
           )}
           
           {/* Admin Dashboard */}
-          {userRole === 'admin' && (
+          {userRole === 'admin' && adminData && (
             <div className="animate-slide-up">
               <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="mb-6">
@@ -706,10 +907,7 @@ const Dashboard = () => {
                                       size="icon" 
                                       variant="ghost" 
                                       className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
-                                      onClick={() => {
-                                        toast.success(`Approved ${donor.name}`);
-                                        adminData.recentDonors[index].status = 'approved';
-                                      }}
+                                      onClick={() => handleApprove(index, 'donor')}
                                     >
                                       <Check className="h-4 w-4" />
                                     </Button>
@@ -717,10 +915,7 @@ const Dashboard = () => {
                                       size="icon" 
                                       variant="ghost" 
                                       className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                      onClick={() => {
-                                        toast.error(`Rejected ${donor.name}`);
-                                        adminData.recentDonors.splice(index, 1);
-                                      }}
+                                      onClick={() => handleReject(index, 'donor')}
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -735,10 +930,7 @@ const Dashboard = () => {
                         <Button 
                           variant="ghost" 
                           className="w-full justify-between"
-                          onClick={() => {
-                            navigate('/dashboard/donors');
-                            toast.info("This would show all donor management");
-                          }}
+                          onClick={() => navigate('/dashboard/donors')}
                         >
                           View All Donors
                           <ChevronRight className="h-4 w-4 ml-1" />
@@ -784,10 +976,7 @@ const Dashboard = () => {
                                       size="icon" 
                                       variant="ghost" 
                                       className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
-                                      onClick={() => {
-                                        toast.success(`Approved request from ${request.hospital}`);
-                                        adminData.recentRequests[index].status = 'approved';
-                                      }}
+                                      onClick={() => handleApprove(index, 'request')}
                                     >
                                       <Check className="h-4 w-4" />
                                     </Button>
@@ -795,10 +984,7 @@ const Dashboard = () => {
                                       size="icon" 
                                       variant="ghost" 
                                       className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                      onClick={() => {
-                                        toast.error(`Rejected request from ${request.hospital}`);
-                                        adminData.recentRequests.splice(index, 1);
-                                      }}
+                                      onClick={() => handleReject(index, 'request')}
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -813,10 +999,7 @@ const Dashboard = () => {
                         <Button 
                           variant="ghost" 
                           className="w-full justify-between"
-                          onClick={() => {
-                            navigate('/dashboard/requests');
-                            toast.info("This would show all blood requests");
-                          }}
+                          onClick={() => navigate('/dashboard/requests')}
                         >
                           View All Requests
                           <ChevronRight className="h-4 w-4 ml-1" />

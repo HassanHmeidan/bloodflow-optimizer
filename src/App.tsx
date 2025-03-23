@@ -13,6 +13,8 @@ import Request from "./pages/Request";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import DonorManagementPage from "./pages/DonorManagementPage";
+import BloodRequestsPage from "./pages/BloodRequestsPage";
 import { Chatbot } from "./components/Chatbot";
 
 // This frontend connects to a Python backend API
@@ -56,6 +58,8 @@ const App = () => (
           <Route path="/request" element={<Request />} />
           <Route path="/about" element={<About />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/dashboard/donors" element={<DonorManagementPage />} />
+          <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
