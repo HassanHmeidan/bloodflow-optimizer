@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { getUserProfile } from "@/lib/auth";
 import {
   User,
   Droplet,
@@ -36,6 +37,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [donations, setDonations] = useState<any[]>([]);
 
   // Check for authentication
   useEffect(() => {
@@ -49,22 +52,45 @@ const Dashboard = () => {
       }
       
       setUserRole(role);
+      
+      // Load user-specific data
+      const savedAppointments = localStorage.getItem('appointments');
+      if (savedAppointments) {
+        setAppointments(JSON.parse(savedAppointments));
+      }
+      
+      // Load donations (would come from an API in a real app)
+      const savedDonations = localStorage.getItem('donations');
+      if (savedDonations) {
+        setDonations(JSON.parse(savedDonations));
+      }
+      
       setLoading(false);
     };
     
     checkAuth();
   }, [navigate]);
 
-  // Mock data for the dashboard
+  // Listen for new appointments
+  useEffect(() => {
+    const handleNewAppointment = (event: CustomEvent) => {
+      const newAppointment = event.detail;
+      setAppointments(prev => [...prev, newAppointment]);
+    };
+
+    window.addEventListener('appointmentScheduled' as any, handleNewAppointment);
+    
+    return () => {
+      window.removeEventListener('appointmentScheduled' as any, handleNewAppointment);
+    };
+  }, []);
+
+  // Mock data for the dashboard - only used for admin and hospital roles
   const donorData = {
     nextEligibleDate: '2023-07-15',
-    donationCount: 8,
-    upcomingAppointment: '2023-06-28',
-    recentDonations: [
-      { date: '2023-03-10', location: 'Central Blood Bank', type: 'Whole Blood' },
-      { date: '2022-12-05', location: 'Mobile Drive - Tech Campus', type: 'Plasma' },
-      { date: '2022-09-18', location: 'Downtown Medical Center', type: 'Whole Blood' },
-    ],
+    donationCount: donations.length || 0,
+    upcomingAppointment: appointments.length > 0 ? appointments[appointments.length - 1].formattedDate : null,
+    recentDonations: donations.length > 0 ? donations : [],
     nearbyDrives: [
       { date: '2023-06-20', location: 'Community Center', distance: '2.4 miles' },
       { date: '2023-06-25', location: 'University Campus', distance: '3.7 miles' },
@@ -192,10 +218,14 @@ const Dashboard = () => {
                       <CardContent>
                         <div className="flex items-center">
                           <Calendar className="h-6 w-6 text-bloodRed-600 mr-3" />
-                          <div className="text-2xl font-bold">{donorData.nextEligibleDate}</div>
+                          <div className="text-2xl font-bold">
+                            {donations.length > 0 ? donorData.nextEligibleDate : "You're eligible now!"}
+                          </div>
                         </div>
                         <p className="text-sm text-gray-500 mt-2">
-                          You'll be eligible to donate whole blood in 23 days
+                          {donations.length > 0 
+                            ? "You'll be eligible to donate whole blood in 23 days" 
+                            : "Schedule your first donation today"}
                         </p>
                       </CardContent>
                     </Card>
@@ -210,7 +240,9 @@ const Dashboard = () => {
                           <div className="text-2xl font-bold">{donorData.donationCount}</div>
                         </div>
                         <p className="text-sm text-gray-500 mt-2">
-                          You've potentially saved up to {donorData.donationCount * 3} lives!
+                          {donorData.donationCount > 0 
+                            ? `You've potentially saved up to ${donorData.donationCount * 3} lives!`
+                            : "Make your first donation to start saving lives"}
                         </p>
                       </CardContent>
                     </Card>
@@ -220,19 +252,35 @@ const Dashboard = () => {
                         <CardTitle className="text-sm font-medium text-gray-500">Upcoming Appointment</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center">
-                          <Clock className="h-6 w-6 text-bloodRed-600 mr-3" />
-                          <div className="text-2xl font-bold">{donorData.upcomingAppointment}</div>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <p className="text-sm text-gray-500">
-                            Central Blood Bank, 10:30 AM
-                          </p>
-                          <Button variant="ghost" size="sm" className="h-8 text-bloodRed-600 hover:text-bloodRed-700">
-                            <Pencil className="h-3 w-3 mr-1" />
-                            Change
-                          </Button>
-                        </div>
+                        {appointments.length > 0 ? (
+                          <>
+                            <div className="flex items-center">
+                              <Clock className="h-6 w-6 text-bloodRed-600 mr-3" />
+                              <div className="text-2xl font-bold">{appointments[appointments.length - 1].formattedDate}</div>
+                            </div>
+                            <div className="flex justify-between items-center mt-2">
+                              <p className="text-sm text-gray-500">
+                                {appointments[appointments.length - 1].location}, {appointments[appointments.length - 1].timeSlot}
+                              </p>
+                              <Button variant="ghost" size="sm" className="h-8 text-bloodRed-600 hover:text-bloodRed-700">
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Change
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-4">
+                            <Calendar className="h-8 w-8 text-gray-400 mb-2" />
+                            <p className="text-gray-600">No upcoming appointments</p>
+                            <Button 
+                              onClick={() => document.getElementById('appointments-tab')?.click()}
+                              variant="link" 
+                              className="text-bloodRed-600 mt-1"
+                            >
+                              Schedule now
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -244,31 +292,43 @@ const Dashboard = () => {
                       <CardDescription>Your donation history for the past year</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-4">
-                        {donorData.recentDonations.map((donation, index) => (
-                          <div key={index} className="flex items-start">
-                            <div className="w-12 h-12 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-4">
-                              <Droplet className="h-6 w-6 text-bloodRed-600" />
-                            </div>
-                            <div className="flex-grow">
-                              <div className="flex justify-between">
-                                <p className="font-medium">{donation.date}</p>
-                                <span className="text-sm bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded">
-                                  {donation.type}
-                                </span>
+                      {donations.length > 0 ? (
+                        <div className="space-y-4">
+                          {donorData.recentDonations.map((donation, index) => (
+                            <div key={index} className="flex items-start">
+                              <div className="w-12 h-12 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-4">
+                                <Droplet className="h-6 w-6 text-bloodRed-600" />
                               </div>
-                              <p className="text-sm text-gray-600">{donation.location}</p>
+                              <div className="flex-grow">
+                                <div className="flex justify-between">
+                                  <p className="font-medium">{donation.date}</p>
+                                  <span className="text-sm bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded">
+                                    {donation.type}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600">{donation.location}</p>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Droplet className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-600 mb-2">No donation history yet</p>
+                          <p className="text-sm text-gray-500">
+                            Your donation history will appear here after your first donation
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
-                    <CardFooter className="border-t pt-4 flex justify-center">
-                      <Button variant="ghost" className="w-full justify-between">
-                        View Full Donation History
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </CardFooter>
+                    {donations.length > 0 && (
+                      <CardFooter className="border-t pt-4 flex justify-center">
+                        <Button variant="ghost" className="w-full justify-between">
+                          View Full Donation History
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </CardFooter>
+                    )}
                   </Card>
                   
                   {/* Nearby Blood Drives */}
@@ -290,7 +350,17 @@ const Dashboard = () => {
                                 <p className="text-sm text-gray-600">{drive.date} • {drive.distance}</p>
                               </div>
                             </div>
-                            <Button size="sm">Schedule</Button>
+                            <Button 
+                              size="sm"
+                              onClick={() => {
+                                document.getElementById('appointments-tab')?.click();
+                                toast.info("Select this location in the appointment form", {
+                                  description: drive.location
+                                });
+                              }}
+                            >
+                              Schedule
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -305,14 +375,32 @@ const Dashboard = () => {
                       <CardDescription>Track all your previous donations</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Detailed donation history would be displayed here.
-                      </p>
+                      {donations.length > 0 ? (
+                        <div className="space-y-6">
+                          {/* Donation history details would go here */}
+                          <p>Your detailed donation history would be displayed here.</p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <Droplet className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-semibold text-gray-700 mb-2">No donations yet</h3>
+                          <p className="text-gray-500 max-w-md mx-auto mb-6">
+                            Your donation journey starts with scheduling your first appointment. 
+                            Each donation can save up to 3 lives!
+                          </p>
+                          <Button 
+                            onClick={() => document.getElementById('appointments-tab')?.click()}
+                            className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                          >
+                            Schedule First Donation
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
                 
-                <TabsContent value="appointments">
+                <TabsContent id="appointments-tab" value="appointments">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <DonorAppointment />
                     
@@ -322,27 +410,41 @@ const Dashboard = () => {
                         <CardDescription>Your scheduled donation appointments</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        {donorData.upcomingAppointment ? (
-                          <div className="p-4 border border-gray-100 rounded-lg">
-                            <div className="flex items-center mb-2">
-                              <div className="w-10 h-10 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-3">
-                                <Calendar className="h-5 w-5 text-bloodRed-600" />
+                        {appointments.length > 0 ? (
+                          <div className="space-y-4">
+                            {appointments.map((appointment, index) => (
+                              <div key={index} className="p-4 border border-gray-100 rounded-lg">
+                                <div className="flex items-center mb-2">
+                                  <div className="w-10 h-10 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-3">
+                                    <Calendar className="h-5 w-5 text-bloodRed-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{appointment.formattedDate}</p>
+                                    <p className="text-sm text-gray-600">{appointment.location}, {appointment.timeSlot}</p>
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2 mt-3">
+                                  <Button size="sm" variant="outline" className="text-gray-600">
+                                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                                    Reschedule
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => {
+                                      const newAppointments = appointments.filter((_, i) => i !== index);
+                                      setAppointments(newAppointments);
+                                      localStorage.setItem('appointments', JSON.stringify(newAppointments));
+                                      toast.success("Appointment cancelled");
+                                    }}
+                                  >
+                                    <X className="h-3.5 w-3.5 mr-1" />
+                                    Cancel
+                                  </Button>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{donorData.upcomingAppointment}</p>
-                                <p className="text-sm text-gray-600">Central Blood Bank, 10:30 AM</p>
-                              </div>
-                            </div>
-                            <div className="flex space-x-2 mt-3">
-                              <Button size="sm" variant="outline" className="text-gray-600">
-                                <Pencil className="h-3.5 w-3.5 mr-1" />
-                                Reschedule
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                                <X className="h-3.5 w-3.5 mr-1" />
-                                Cancel
-                              </Button>
-                            </div>
+                            ))}
                           </div>
                         ) : (
                           <div className="text-center py-8 text-gray-500">
