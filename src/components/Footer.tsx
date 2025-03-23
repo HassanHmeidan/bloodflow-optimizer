@@ -45,7 +45,7 @@ export const Footer = () => {
                 { label: 'About Us', href: '/about' },
                 { label: 'Donate Blood', href: '/donate' },
                 { label: 'Request Blood', href: '/request' },
-                { label: 'FAQs', href: '/about#faqs' },
+                { label: 'FAQs', href: '/faqs' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link 
@@ -66,11 +66,11 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-2">
               {[
-                { label: 'Donor Guidelines', href: '/about#guidelines' },
-                { label: 'Blood Types', href: '/about#blood-types' },
-                { label: 'Health Information', href: '/about#health-info' },
-                { label: 'Donation Process', href: '/donate#process' },
-                { label: 'Research', href: '/about#research' },
+                { label: 'Donor Guidelines', href: '/guidelines' },
+                { label: 'Blood Types', href: '/blood-types' },
+                { label: 'Health Information', href: '/health-info' },
+                { label: 'Donation Process', href: '/process' },
+                { label: 'Research', href: '/research' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link 
@@ -114,13 +114,13 @@ export const Footer = () => {
             &copy; {currentYear} LifeFlow Blood Bank. All rights reserved.
           </p>
           <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link to="/about#privacy" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
+            <Link to="/privacy" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
               Privacy Policy
             </Link>
-            <Link to="/about#terms" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
+            <Link to="/terms" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
               Terms of Service
             </Link>
-            <Link to="/about#cookies" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
+            <Link to="/cookies" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">
               Cookie Policy
             </Link>
           </div>
