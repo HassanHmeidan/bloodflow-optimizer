@@ -32,9 +32,10 @@ export const DonorAppointment = () => {
   const [loading, setLoading] = useState(false);
   const [appointments, setAppointments] = useState<any[]>([]);
 
-  // Load existing appointments from localStorage
+  // Load existing appointments from localStorage with user-specific key
   useEffect(() => {
-    const savedAppointments = localStorage.getItem('appointments');
+    const userId = localStorage.getItem('authToken');
+    const savedAppointments = localStorage.getItem(`appointments_${userId}`);
     if (savedAppointments) {
       setAppointments(JSON.parse(savedAppointments));
     }
@@ -55,6 +56,8 @@ export const DonorAppointment = () => {
     // Simulate an API call to our Python backend
     setTimeout(() => {
       try {
+        const userId = localStorage.getItem('authToken');
+        
         // Create new appointment object
         const newAppointment = {
           id: Date.now(),
@@ -65,10 +68,10 @@ export const DonorAppointment = () => {
           status: 'confirmed'
         };
         
-        // Update state and localStorage
+        // Update state and localStorage with user-specific key
         const updatedAppointments = [...appointments, newAppointment];
         setAppointments(updatedAppointments);
-        localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+        localStorage.setItem(`appointments_${userId}`, JSON.stringify(updatedAppointments));
         
         // Show success message
         toast.success("Appointment scheduled successfully!", {
@@ -140,6 +143,7 @@ export const DonorAppointment = () => {
                   selected={date}
                   onSelect={setDate}
                   initialFocus
+                  className="pointer-events-auto"
                   disabled={(date) => {
                     // Disable dates in the past and more than 30 days in the future
                     const today = new Date();

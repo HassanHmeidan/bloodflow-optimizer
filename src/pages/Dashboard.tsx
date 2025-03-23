@@ -5,6 +5,9 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { BloodInventory } from "@/components/BloodInventory";
 import { DonorAppointment } from "@/components/DonorAppointment";
+import { AppointmentHistory } from "@/components/AppointmentHistory";
+import { DonorManagement } from "@/components/DonorManagement";
+import { BloodRequestManagement, BloodRequestForm } from "@/components/BloodRequestManagement";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { getUserProfile } from "@/lib/auth";
+import { getUserProfile, getUserRole, logout } from "@/lib/auth";
 import {
   User,
   Droplet,
@@ -39,12 +42,14 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [donations, setDonations] = useState<any[]>([]);
+  const [userName, setUserName] = useState<string>('');
 
   // Check for authentication
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem('authToken');
       const role = localStorage.getItem('userRole');
+      const name = localStorage.getItem('userName');
       
       if (!token) {
         navigate('/auth');
@@ -52,15 +57,19 @@ const Dashboard = () => {
       }
       
       setUserRole(role);
+      setUserName(name || 'User');
       
-      // Load user-specific data
-      const savedAppointments = localStorage.getItem('appointments');
+      // Load user-specific data - use user-specific keys
+      const userId = localStorage.getItem('authToken');
+      
+      // Load appointments for this specific user
+      const savedAppointments = localStorage.getItem(`appointments_${userId}`);
       if (savedAppointments) {
         setAppointments(JSON.parse(savedAppointments));
       }
       
-      // Load donations (would come from an API in a real app)
-      const savedDonations = localStorage.getItem('donations');
+      // Load donations for this specific user
+      const savedDonations = localStorage.getItem(`donations_${userId}`);
       if (savedDonations) {
         setDonations(JSON.parse(savedDonations));
       }
@@ -74,8 +83,15 @@ const Dashboard = () => {
   // Listen for new appointments
   useEffect(() => {
     const handleNewAppointment = (event: CustomEvent) => {
+      const userId = localStorage.getItem('authToken');
       const newAppointment = event.detail;
-      setAppointments(prev => [...prev, newAppointment]);
+      
+      // Update state
+      const updatedAppointments = [...appointments, newAppointment];
+      setAppointments(updatedAppointments);
+      
+      // Store in localStorage with user-specific key
+      localStorage.setItem(`appointments_${userId}`, JSON.stringify(updatedAppointments));
     };
 
     window.addEventListener('appointmentScheduled' as any, handleNewAppointment);
@@ -83,7 +99,7 @@ const Dashboard = () => {
     return () => {
       window.removeEventListener('appointmentScheduled' as any, handleNewAppointment);
     };
-  }, []);
+  }, [appointments]);
 
   // Mock data for the dashboard - only used for admin and hospital roles
   const donorData = {
@@ -129,6 +145,11 @@ const Dashboard = () => {
     ]
   };
 
+  const handleSignOut = () => {
+    logout();
+    navigate('/');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -164,9 +185,9 @@ const Dashboard = () => {
                   {userRole === 'admin' && 'Admin Control Panel'}
                 </h1>
                 <p className="text-white/80">
-                  {userRole === 'donor' && 'Track your donations and find nearby blood drives'}
-                  {userRole === 'hospital' && 'Manage blood requests and inventory'}
-                  {userRole === 'admin' && 'Monitor system activity and manage users'}
+                  {userRole === 'donor' && `Welcome back, ${userName}! Track your donations and find nearby blood drives`}
+                  {userRole === 'hospital' && `Welcome back, ${userName}! Manage blood requests and inventory`}
+                  {userRole === 'admin' && `Welcome back, ${userName}! Monitor system activity and manage users`}
                 </p>
               </div>
               <div className="mt-4 md:mt-0 flex space-x-2">
@@ -181,12 +202,7 @@ const Dashboard = () => {
                 <Button 
                   variant="outline" 
                   className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                  onClick={() => {
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('userRole');
-                    toast.success("Logged out successfully");
-                    navigate('/');
-                  }}
+                  onClick={handleSignOut}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
@@ -403,58 +419,7 @@ const Dashboard = () => {
                 <TabsContent id="appointments-tab" value="appointments">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <DonorAppointment />
-                    
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Upcoming Appointments</CardTitle>
-                        <CardDescription>Your scheduled donation appointments</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {appointments.length > 0 ? (
-                          <div className="space-y-4">
-                            {appointments.map((appointment, index) => (
-                              <div key={index} className="p-4 border border-gray-100 rounded-lg">
-                                <div className="flex items-center mb-2">
-                                  <div className="w-10 h-10 rounded-full bg-bloodRed-50 flex items-center justify-center flex-shrink-0 mr-3">
-                                    <Calendar className="h-5 w-5 text-bloodRed-600" />
-                                  </div>
-                                  <div>
-                                    <p className="font-medium">{appointment.formattedDate}</p>
-                                    <p className="text-sm text-gray-600">{appointment.location}, {appointment.timeSlot}</p>
-                                  </div>
-                                </div>
-                                <div className="flex space-x-2 mt-3">
-                                  <Button size="sm" variant="outline" className="text-gray-600">
-                                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                                    Reschedule
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-red-600 border-red-200 hover:bg-red-50"
-                                    onClick={() => {
-                                      const newAppointments = appointments.filter((_, i) => i !== index);
-                                      setAppointments(newAppointments);
-                                      localStorage.setItem('appointments', JSON.stringify(newAppointments));
-                                      toast.success("Appointment cancelled");
-                                    }}
-                                  >
-                                    <X className="h-3.5 w-3.5 mr-1" />
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                            <p>No upcoming appointments</p>
-                            <p className="text-sm text-gray-400 mt-1">Schedule your next donation using the form</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                    <AppointmentHistory />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -506,20 +471,7 @@ const Dashboard = () => {
                   </div>
                   
                   {/* New Request Form */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Request Blood</CardTitle>
-                      <CardDescription>Submit a new blood request</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center">
-                        <p className="text-gray-600 mb-4">
-                          The blood request form interface would be displayed here.
-                        </p>
-                        <Button>Create New Request</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <BloodRequestForm />
                   
                   {/* Recent Requests */}
                   <Card>
@@ -558,7 +510,14 @@ const Dashboard = () => {
                       </div>
                     </CardContent>
                     <CardFooter className="border-t pt-4 flex justify-center">
-                      <Button variant="ghost" className="w-full justify-between">
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-between"
+                        onClick={() => {
+                          navigate('/dashboard/requests');
+                          toast.info("This would show all blood requests");
+                        }}
+                      >
                         View All Requests
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
@@ -624,9 +583,7 @@ const Dashboard = () => {
                       <CardDescription>All blood requests history and status</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Complete request history would be displayed here.
-                      </p>
+                      <BloodRequestManagement />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -745,10 +702,26 @@ const Dashboard = () => {
                                 </span>
                                 {donor.status === 'pending' && (
                                   <div className="flex space-x-1 ml-2">
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                      onClick={() => {
+                                        toast.success(`Approved ${donor.name}`);
+                                        adminData.recentDonors[index].status = 'approved';
+                                      }}
+                                    >
                                       <Check className="h-4 w-4" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                      onClick={() => {
+                                        toast.error(`Rejected ${donor.name}`);
+                                        adminData.recentDonors.splice(index, 1);
+                                      }}
+                                    >
                                       <X className="h-4 w-4" />
                                     </Button>
                                   </div>
@@ -759,7 +732,14 @@ const Dashboard = () => {
                         </div>
                       </CardContent>
                       <CardFooter className="border-t pt-4 flex justify-center">
-                        <Button variant="ghost" className="w-full justify-between">
+                        <Button 
+                          variant="ghost" 
+                          className="w-full justify-between"
+                          onClick={() => {
+                            navigate('/dashboard/donors');
+                            toast.info("This would show all donor management");
+                          }}
+                        >
                           View All Donors
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
@@ -800,10 +780,26 @@ const Dashboard = () => {
                                 </span>
                                 {request.status === 'pending' && (
                                   <div className="flex space-x-1 ml-2">
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                      onClick={() => {
+                                        toast.success(`Approved request from ${request.hospital}`);
+                                        adminData.recentRequests[index].status = 'approved';
+                                      }}
+                                    >
                                       <Check className="h-4 w-4" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                      onClick={() => {
+                                        toast.error(`Rejected request from ${request.hospital}`);
+                                        adminData.recentRequests.splice(index, 1);
+                                      }}
+                                    >
                                       <X className="h-4 w-4" />
                                     </Button>
                                   </div>
@@ -814,7 +810,14 @@ const Dashboard = () => {
                         </div>
                       </CardContent>
                       <CardFooter className="border-t pt-4 flex justify-center">
-                        <Button variant="ghost" className="w-full justify-between">
+                        <Button 
+                          variant="ghost" 
+                          className="w-full justify-between"
+                          onClick={() => {
+                            navigate('/dashboard/requests');
+                            toast.info("This would show all blood requests");
+                          }}
+                        >
                           View All Requests
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
@@ -870,9 +873,7 @@ const Dashboard = () => {
                       <CardDescription>Manage donor accounts and information</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Donor management interface would be displayed here.
-                      </p>
+                      <DonorManagement />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -884,9 +885,7 @@ const Dashboard = () => {
                       <CardDescription>Review and process blood requests</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Blood request management interface would be displayed here.
-                      </p>
+                      <BloodRequestManagement />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -898,9 +897,7 @@ const Dashboard = () => {
                       <CardDescription>Track and manage blood inventory</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-center py-8 text-gray-500">
-                        Blood inventory management interface would be displayed here.
-                      </p>
+                      <BloodInventory />
                     </CardContent>
                   </Card>
                 </TabsContent>
