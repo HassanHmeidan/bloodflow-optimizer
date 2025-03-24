@@ -1,6 +1,6 @@
-
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -15,16 +15,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertCircle, FileText, CalendarClock } from 'lucide-react';
+import { AlertCircle, FileText, CalendarClock, ShieldAlert } from 'lucide-react';
+import { isAuthenticated, getUserRole } from "@/lib/auth";
 
 const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const urgencyLevels = ["Normal", "Urgent", "Emergency"];
 
 const Request = () => {
   const [loading, setLoading] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Check if user is authenticated and is a hospital
+    const authenticated = isAuthenticated();
+    const userRole = getUserRole();
+    
+    setIsAuthorized(authenticated && userRole === 'hospital');
+  }, []);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Double-check authorization before submitting
+    if (!isAuthorized) {
+      toast.error("Authorization required", {
+        description: "Only hospitals can submit blood requests. Please sign in with a hospital account.",
+      });
+      return;
+    }
+    
     setLoading(true);
     
     // Simulate API call
@@ -35,6 +55,10 @@ const Request = () => {
       });
       setLoading(false);
     }, 1500);
+  };
+  
+  const handleSignIn = () => {
+    navigate('/auth');
   };
   
   return (
@@ -65,111 +89,132 @@ const Request = () => {
         <section className="py-16 bg-white">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="bg-white p-8 rounded-xl shadow-sm border border-gray-200"
-              >
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="patientName">Patient Name</Label>
-                      <Input id="patientName" placeholder="Full name of patient" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="hospitalName">Hospital/Clinic Name</Label>
-                      <Input id="hospitalName" placeholder="Name of medical facility" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="bloodType">Blood Type Needed</Label>
-                      <Select required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select blood type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {bloodTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="units">Units Required</Label>
-                      <Input id="units" type="number" min="1" max="10" placeholder="Number of units" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="urgency">Urgency Level</Label>
-                      <Select required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select urgency level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {urgencyLevels.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {level}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="requiredBy">Required By Date</Label>
-                      <Input id="requiredBy" type="date" required />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Delivery Address</Label>
-                    <Textarea id="address" placeholder="Full address for blood delivery" rows={3} required />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="medicalCase">Medical Case Description</Label>
-                    <Textarea id="medicalCase" placeholder="Brief description of the medical case" rows={4} required />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="contactName">Contact Person</Label>
-                    <Input id="contactName" placeholder="Name of primary contact person" required />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPhone">Contact Phone</Label>
-                      <Input id="contactPhone" type="tel" placeholder="Phone number" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="contactEmail">Contact Email</Label>
-                      <Input id="contactEmail" type="email" placeholder="Email address" required />
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg flex items-start">
-                    <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-amber-800">
-                      <strong>Important:</strong> Please provide accurate information to ensure fast processing. 
-                      For emergency cases, we recommend also calling our emergency hotline at 1-800-LIFE-NOW.
-                    </div>
-                  </div>
-                  
+              {!isAuthorized ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center"
+                >
+                  <ShieldAlert className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold mb-3">Hospital Authentication Required</h2>
+                  <p className="text-gray-600 mb-6">
+                    Only registered hospitals can submit blood requests. Please sign in with your hospital account to continue.
+                  </p>
                   <Button 
-                    type="submit" 
-                    className="w-full h-12 bg-bloodRed-600 hover:bg-bloodRed-700"
-                    disabled={loading}
+                    onClick={handleSignIn}
+                    className="bg-bloodRed-600 hover:bg-bloodRed-700"
                   >
-                    {loading ? "Submitting..." : "Submit Blood Request"}
+                    Sign In as Hospital
                   </Button>
-                </form>
-              </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="bg-white p-8 rounded-xl shadow-sm border border-gray-200"
+                >
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="patientName">Patient Name</Label>
+                        <Input id="patientName" placeholder="Full name of patient" required />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="hospitalName">Hospital/Clinic Name</Label>
+                        <Input id="hospitalName" placeholder="Name of medical facility" required />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="bloodType">Blood Type Needed</Label>
+                        <Select required>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select blood type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {bloodTypes.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="units">Units Required</Label>
+                        <Input id="units" type="number" min="1" max="10" placeholder="Number of units" required />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="urgency">Urgency Level</Label>
+                        <Select required>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select urgency level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {urgencyLevels.map((level) => (
+                              <SelectItem key={level} value={level}>
+                                {level}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="requiredBy">Required By Date</Label>
+                        <Input id="requiredBy" type="date" required />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Delivery Address</Label>
+                      <Textarea id="address" placeholder="Full address for blood delivery" rows={3} required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="medicalCase">Medical Case Description</Label>
+                      <Textarea id="medicalCase" placeholder="Brief description of the medical case" rows={4} required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="contactName">Contact Person</Label>
+                      <Input id="contactName" placeholder="Name of primary contact person" required />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPhone">Contact Phone</Label>
+                        <Input id="contactPhone" type="tel" placeholder="Phone number" required />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="contactEmail">Contact Email</Label>
+                        <Input id="contactEmail" type="email" placeholder="Email address" required />
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg flex items-start">
+                      <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-amber-800">
+                        <strong>Important:</strong> Please provide accurate information to ensure fast processing. 
+                        For emergency cases, we recommend also calling our emergency hotline at 1-800-LIFE-NOW.
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full h-12 bg-bloodRed-600 hover:bg-bloodRed-700"
+                      disabled={loading}
+                    >
+                      {loading ? "Submitting..." : "Submit Blood Request"}
+                    </Button>
+                  </form>
+                </motion.div>
+              )}
             </div>
           </div>
         </section>

@@ -1,5 +1,6 @@
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -12,18 +13,39 @@ import {
   Clock, 
   Check, 
   AlertCircle,
-  Heart 
+  Heart,
+  LogIn
 } from 'lucide-react';
+import { isAuthenticated, getUserRole } from "@/lib/auth";
 
 const Donate = () => {
   const navigate = useNavigate();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  
+  useEffect(() => {
+    // Check if user is authenticated and is a donor
+    const authenticated = isAuthenticated();
+    const userRole = getUserRole();
+    
+    // Donors and admin can access donation functionality
+    setIsAuthorized(authenticated && (userRole === 'donor' || userRole === 'admin'));
+  }, []);
   
   const handleAppointmentClick = () => {
+    if (!isAuthorized) {
+      navigate('/auth');
+      return;
+    }
+    
     // Scroll to the appointment section
     const appointmentSection = document.querySelector("#appointment-section");
     if (appointmentSection) {
       appointmentSection.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+  
+  const handleSignIn = () => {
+    navigate('/auth');
   };
   
   return (
@@ -68,7 +90,28 @@ const Donate = () => {
               </motion.div>
               
               <div className="max-w-lg mx-auto">
-                <DonorAppointment />
+                {isAuthorized ? (
+                  <DonorAppointment />
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center"
+                  >
+                    <LogIn className="h-16 w-16 text-bloodRed-600 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold mb-3">Sign In to Schedule Donation</h3>
+                    <p className="text-gray-600 mb-6">
+                      Please sign in to your donor account to schedule a blood donation appointment.
+                    </p>
+                    <Button 
+                      onClick={handleSignIn}
+                      className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                    >
+                      Sign In to Continue
+                    </Button>
+                  </motion.div>
+                )}
               </div>
             </div>
           </div>
@@ -210,7 +253,7 @@ const Donate = () => {
                       className="w-full bg-bloodRed-600 hover:bg-bloodRed-700"
                       onClick={handleAppointmentClick}
                     >
-                      Schedule Appointment
+                      {isAuthorized ? "Schedule Appointment" : "Sign In to Schedule"}
                     </Button>
                   </motion.div>
                 ))}
@@ -238,7 +281,7 @@ const Donate = () => {
                   className="bg-bloodRed-600 hover:bg-bloodRed-700 h-12 px-8 text-lg"
                   onClick={handleAppointmentClick}
                 >
-                  Schedule Appointment
+                  {isAuthorized ? "Schedule Appointment" : "Sign In to Schedule"}
                 </Button>
               </motion.div>
             </div>
