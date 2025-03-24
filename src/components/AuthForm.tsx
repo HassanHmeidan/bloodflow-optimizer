@@ -1,7 +1,10 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle, Building, MapPin, Phone, Droplet } from 'lucide-react';
+import { 
+  User, UserPlus, LogIn, Mail, Lock, Heart, AlertCircle, 
+  Building, MapPin, Phone, Droplet, Eye, EyeOff 
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,97 +12,145 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { login, register } from "@/lib/auth";
 import { UserRole } from "@/lib/roles";
+import { z } from 'zod';
 
-type AuthMode = 'login' | 'register';
+// Separate validation schemas for donor and hospital registration
+const donorRegistrationSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  confirmPassword: z.string(),
+  bloodType: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say']),
+  medicalConditions: z.string().optional()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+const hospitalRegistrationSchema = z.object({
+  hospitalName: z.string().min(2, { message: "Hospital name must be at least 2 characters" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  confirmPassword: z.string(),
+  address: z.string().min(5, { message: "Address must be at least 5 characters" }),
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, { message: "Invalid phone number" }),
+  licenseNumber: z.string().min(3, { message: "License number must be at least 3 characters" })
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+type DonorRegistrationData = z.infer<typeof donorRegistrationSchema>;
+type HospitalRegistrationData = z.infer<typeof hospitalRegistrationSchema>;
 
 export const AuthForm = () => {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('donor');
   
   const navigate = useNavigate();
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Form state with more specific typing
+  const [formData, setFormData] = useState<DonorRegistrationData | HospitalRegistrationData>({
     email: '',
     password: '',
-    name: '',
     confirmPassword: '',
-    // Hospital specific fields
-    hospitalName: '',
-    address: '',
-    phone: '',
-    licenseNumber: '',
-    // Donor specific fields
-    bloodType: '',
-    dateOfBirth: '',
-    gender: '',
-    medicalConditions: '',
+    ...(userRole === 'donor' ? {
+      name: '',
+      bloodType: '',
+      gender: '',
+      dateOfBirth: '',
+      medicalConditions: ''
+    } : {
+      hospitalName: '',
+      address: '',
+      phone: '',
+      licenseNumber: ''
+    })
   });
 
-  // Handle input change
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Toggle auth mode
-  const toggleMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
-    setFormData({
-      email: '',
-      password: '',
-      name: '',
-      confirmPassword: '',
-      hospitalName: '',
-      address: '',
-      phone: '',
-      licenseNumber: '',
-      bloodType: '',
-      dateOfBirth: '',
-      gender: '',
-      medicalConditions: '',
-    });
-    // Reset to donor role when switching to register mode
-    if (mode === 'login') {
-      setUserRole('donor');
-    }
-  };
-
-  // Form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (mode === 'register' && formData.password !== formData.confirmPassword) {
-      return;
-    }
-    
+    setValidationErrors({});
     setLoading(true);
-    
+
     try {
+      const schema = userRole === 'donor' 
+        ? donorRegistrationSchema 
+        : hospitalRegistrationSchema;
+
+      const result = schema.safeParse(formData);
+
+      if (!result.success) {
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach((err) => {
+          errors[err.path[0] as string] = err.message;
+        });
+        setValidationErrors(errors);
+        setLoading(false);
+        return;
+      }
+
       if (mode === 'login') {
         const success = await login(formData.email, formData.password, userRole);
-        if (success) {
-          navigate('/dashboard');
-        }
+        if (success) navigate('/dashboard');
       } else {
-        // For hospital registrations, use the hospital name instead of personal name
-        const nameToUse = userRole === 'hospital' ? formData.hospitalName : formData.name;
-        
+        const registerData = userRole === 'donor' 
+          ? { 
+              name: (formData as DonorRegistrationData).name, 
+              email: formData.email,
+              password: formData.password 
+            }
+          : { 
+              name: (formData as HospitalRegistrationData).hospitalName, 
+              email: formData.email,
+              password: formData.password,
+              additionalData: userRole === 'hospital' 
+                ? { 
+                    address: (formData as HospitalRegistrationData).address,
+                    phone: (formData as HospitalRegistrationData).phone,
+                    licenseNumber: (formData as HospitalRegistrationData).licenseNumber
+                  } 
+                : undefined
+            };
+
         const success = await register(
-          nameToUse,
-          formData.email,
-          formData.password,
-          userRole
+          registerData.name, 
+          registerData.email, 
+          registerData.password, 
+          userRole,
+          registerData.additionalData
         );
+
         if (success) {
           setMode('login');
-          setFormData(prev => ({
-            ...prev,
+          setFormData({
+            email: '',
             password: '',
             confirmPassword: '',
-          }));
+            ...(userRole === 'donor' ? {
+              name: '',
+              bloodType: '',
+              gender: '',
+              dateOfBirth: '',
+              medicalConditions: ''
+            } : {
+              hospitalName: '',
+              address: '',
+              phone: '',
+              licenseNumber: ''
+            })
+          });
         }
       }
     } catch (error) {
