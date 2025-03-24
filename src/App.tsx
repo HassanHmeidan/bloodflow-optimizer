@@ -33,12 +33,24 @@ const queryClient = new QueryClient({
 });
 
 // ScrollToTop component to handle scrolling to top on navigation
+// and also handle scrolling to anchor if present in URL
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useEffect(() => {
+    // First scroll to top
     window.scrollTo(0, 0);
-  }, [pathname]);
+    
+    // Then handle hash (if any) with a slight delay to ensure page is loaded
+    if (hash) {
+      setTimeout(() => {
+        const element = document.getElementById(hash.substring(1));
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+    }
+  }, [pathname, hash]);
 
   return null;
 };
