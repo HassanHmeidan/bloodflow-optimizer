@@ -45,6 +45,40 @@ const hospitalRegistrationSchema = z.object({
 type DonorRegistrationData = z.infer<typeof donorRegistrationSchema>;
 type HospitalRegistrationData = z.infer<typeof hospitalRegistrationSchema>;
 
+// Define a common interface with properties that both types share
+interface CommonFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+// Define a union type with discriminator (userRole) to help TypeScript distinguish between the types
+type FormData = 
+  | (CommonFormData & { 
+      userRole: 'donor';
+      name: string;
+      bloodType: string;
+      gender: string;
+      dateOfBirth: string;
+      medicalConditions: string;
+      hospitalName?: never;
+      address?: never;
+      phone?: never;
+      licenseNumber?: never;
+    }) 
+  | (CommonFormData & {
+      userRole: 'hospital';
+      hospitalName: string;
+      address: string;
+      phone: string;
+      licenseNumber: string;
+      name?: never;
+      bloodType?: never;
+      gender?: never;
+      dateOfBirth?: never;
+      medicalConditions?: never;
+    });
+
 export const AuthForm = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,28 +87,68 @@ export const AuthForm = () => {
   
   const navigate = useNavigate();
 
-  // Form state with more specific typing
-  const [formData, setFormData] = useState<DonorRegistrationData | HospitalRegistrationData>({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    ...(userRole === 'donor' ? {
-      name: '',
-      bloodType: '',
-      gender: '',
-      dateOfBirth: '',
-      medicalConditions: ''
-    } : {
-      hospitalName: '',
-      address: '',
-      phone: '',
-      licenseNumber: ''
-    })
-  });
+  // Initialize form data based on role
+  const [formData, setFormData] = useState<FormData>(
+    userRole === 'donor' 
+      ? {
+          userRole: 'donor',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          name: '',
+          bloodType: '',
+          gender: '',
+          dateOfBirth: '',
+          medicalConditions: ''
+        } 
+      : {
+          userRole: 'hospital',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          hospitalName: '',
+          address: '',
+          phone: '',
+          licenseNumber: ''
+        }
+  );
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Update form data when role changes
+  const handleRoleChange = (role: UserRole) => {
+    setUserRole(role);
+    
+    // Reset form data based on new role
+    setFormData(
+      role === 'donor' 
+        ? {
+            userRole: 'donor',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            name: '',
+            bloodType: '',
+            gender: '',
+            dateOfBirth: '',
+            medicalConditions: ''
+          } 
+        : {
+            userRole: 'hospital',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            hospitalName: '',
+            address: '',
+            phone: '',
+            licenseNumber: ''
+          }
+    );
+    
+    setValidationErrors({});
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -85,72 +159,86 @@ export const AuthForm = () => {
     setLoading(true);
 
     try {
-      const schema = userRole === 'donor' 
-        ? donorRegistrationSchema 
-        : hospitalRegistrationSchema;
-
-      const result = schema.safeParse(formData);
-
-      if (!result.success) {
-        const errors: Record<string, string> = {};
-        result.error.errors.forEach((err) => {
-          errors[err.path[0] as string] = err.message;
-        });
-        setValidationErrors(errors);
-        setLoading(false);
-        return;
-      }
-
       if (mode === 'login') {
         const success = await login(formData.email, formData.password, userRole);
         if (success) navigate('/dashboard');
       } else {
-        const registerData = userRole === 'donor' 
-          ? { 
-              name: (formData as DonorRegistrationData).name, 
-              email: formData.email,
-              password: formData.password 
+        // Validate based on role
+        if (formData.userRole === 'donor') {
+          const donorData = {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            confirmPassword: formData.confirmPassword,
+            bloodType: formData.bloodType as any,
+            dateOfBirth: formData.dateOfBirth,
+            gender: formData.gender as any,
+            medicalConditions: formData.medicalConditions
+          };
+          
+          const result = donorRegistrationSchema.safeParse(donorData);
+          
+          if (!result.success) {
+            const errors: Record<string, string> = {};
+            result.error.errors.forEach((err) => {
+              errors[err.path[0] as string] = err.message;
+            });
+            setValidationErrors(errors);
+            setLoading(false);
+            return;
+          }
+          
+          const success = await register(
+            donorData.name,
+            donorData.email,
+            donorData.password,
+            'donor'
+          );
+
+          if (success) {
+            setMode('login');
+            handleRoleChange('donor');
+          }
+        } else {
+          // Hospital registration
+          const hospitalData = {
+            hospitalName: formData.hospitalName,
+            email: formData.email,
+            password: formData.password,
+            confirmPassword: formData.confirmPassword,
+            address: formData.address,
+            phone: formData.phone,
+            licenseNumber: formData.licenseNumber
+          };
+          
+          const result = hospitalRegistrationSchema.safeParse(hospitalData);
+          
+          if (!result.success) {
+            const errors: Record<string, string> = {};
+            result.error.errors.forEach((err) => {
+              errors[err.path[0] as string] = err.message;
+            });
+            setValidationErrors(errors);
+            setLoading(false);
+            return;
+          }
+          
+          const success = await register(
+            hospitalData.hospitalName,
+            hospitalData.email,
+            hospitalData.password,
+            'hospital',
+            {
+              address: hospitalData.address,
+              phone: hospitalData.phone,
+              licenseNumber: hospitalData.licenseNumber
             }
-          : { 
-              name: (formData as HospitalRegistrationData).hospitalName, 
-              email: formData.email,
-              password: formData.password,
-              additionalData: userRole === 'hospital' 
-                ? { 
-                    address: (formData as HospitalRegistrationData).address,
-                    phone: (formData as HospitalRegistrationData).phone,
-                    licenseNumber: (formData as HospitalRegistrationData).licenseNumber
-                  } 
-                : undefined
-            };
+          );
 
-        const success = await register(
-          registerData.name, 
-          registerData.email, 
-          registerData.password, 
-          userRole,
-          registerData.additionalData
-        );
-
-        if (success) {
-          setMode('login');
-          setFormData({
-            email: '',
-            password: '',
-            confirmPassword: '',
-            ...(userRole === 'donor' ? {
-              name: '',
-              bloodType: '',
-              gender: '',
-              dateOfBirth: '',
-              medicalConditions: ''
-            } : {
-              hospitalName: '',
-              address: '',
-              phone: '',
-              licenseNumber: ''
-            })
-          });
+          if (success) {
+            setMode('login');
+            handleRoleChange('hospital');
+          }
         }
       }
     } catch (error) {
@@ -183,6 +271,15 @@ export const AuthForm = () => {
   
   // Blood type options
   const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  
+  // Type guard helper functions
+  const isDonorForm = (form: FormData): form is FormData & { userRole: 'donor' } => {
+    return form.userRole === 'donor';
+  };
+  
+  const isHospitalForm = (form: FormData): form is FormData & { userRole: 'hospital' } => {
+    return form.userRole === 'hospital';
+  };
   
   return (
     <div className="w-full max-w-md mx-auto">
@@ -248,7 +345,7 @@ export const AuthForm = () => {
                     border-2 h-auto py-3 px-2 flex flex-col items-center
                     ${userRole === 'donor' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
                   `}
-                  onClick={() => setUserRole('donor')}
+                  onClick={() => handleRoleChange('donor')}
                 >
                   <User className="h-4 w-4 mb-1" />
                   <span className="text-xs font-medium">Donor</span>
@@ -260,7 +357,7 @@ export const AuthForm = () => {
                     border-2 h-auto py-3 px-2 flex flex-col items-center
                     ${userRole === 'hospital' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
                   `}
-                  onClick={() => setUserRole('hospital')}
+                  onClick={() => handleRoleChange('hospital')}
                 >
                   <Building className="h-4 w-4 mb-1" />
                   <span className="text-xs font-medium">Hospital</span>
@@ -272,7 +369,7 @@ export const AuthForm = () => {
           {/* Register Form Fields - Show different fields based on role */}
           {mode === 'register' && (
             <>
-              {userRole === 'donor' ? (
+              {isDonorForm(formData) ? (
                 // Donor specific registration fields
                 <>
                   <div className="space-y-1">
@@ -292,6 +389,9 @@ export const AuthForm = () => {
                         required
                       />
                     </div>
+                    {validationErrors.name && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.name}</p>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -306,7 +406,7 @@ export const AuthForm = () => {
                           name="bloodType"
                           className="pl-10 w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           value={formData.bloodType}
-                          onChange={(e) => setFormData(prev => ({ ...prev, bloodType: e.target.value }))}
+                          onChange={handleChange}
                         >
                           <option value="">Select</option>
                           {bloodTypes.map(type => (
@@ -314,6 +414,9 @@ export const AuthForm = () => {
                           ))}
                         </select>
                       </div>
+                      {validationErrors.bloodType && (
+                        <p className="text-sm text-red-500 mt-1">{validationErrors.bloodType}</p>
+                      )}
                     </div>
                     
                     <div className="space-y-1">
@@ -325,6 +428,9 @@ export const AuthForm = () => {
                         value={formData.dateOfBirth}
                         onChange={handleChange}
                       />
+                      {validationErrors.dateOfBirth && (
+                        <p className="text-sm text-red-500 mt-1">{validationErrors.dateOfBirth}</p>
+                      )}
                     </div>
                   </div>
                   
@@ -335,7 +441,7 @@ export const AuthForm = () => {
                       name="gender"
                       className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       value={formData.gender}
-                      onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                      onChange={handleChange}
                     >
                       <option value="">Select</option>
                       <option value="male">Male</option>
@@ -343,6 +449,9 @@ export const AuthForm = () => {
                       <option value="other">Other</option>
                       <option value="prefer-not-to-say">Prefer not to say</option>
                     </select>
+                    {validationErrors.gender && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.gender}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-1">
@@ -378,6 +487,9 @@ export const AuthForm = () => {
                         required
                       />
                     </div>
+                    {validationErrors.hospitalName && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.hospitalName}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-1">
@@ -397,6 +509,9 @@ export const AuthForm = () => {
                         required
                       />
                     </div>
+                    {validationErrors.address && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.address}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-1">
@@ -416,6 +531,9 @@ export const AuthForm = () => {
                         required
                       />
                     </div>
+                    {validationErrors.phone && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.phone}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-1">
@@ -429,6 +547,9 @@ export const AuthForm = () => {
                       onChange={handleChange}
                       required
                     />
+                    {validationErrors.licenseNumber && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.licenseNumber}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -453,6 +574,9 @@ export const AuthForm = () => {
                 required
               />
             </div>
+            {validationErrors.email && (
+              <p className="text-sm text-red-500 mt-1">{validationErrors.email}</p>
+            )}
           </div>
           
           <div className="space-y-1">
@@ -479,6 +603,9 @@ export const AuthForm = () => {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {validationErrors.password && (
+              <p className="text-sm text-red-500 mt-1">{validationErrors.password}</p>
+            )}
           </div>
           
           {mode === 'register' && (
@@ -499,6 +626,9 @@ export const AuthForm = () => {
                   required
                 />
               </div>
+              {validationErrors.confirmPassword && (
+                <p className="text-sm text-red-500 mt-1">{validationErrors.confirmPassword}</p>
+              )}
             </div>
           )}
           
