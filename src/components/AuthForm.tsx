@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle, Building } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, UserPlus, LogIn, Mail, Heart, AlertCircle, Building, MapPin, Phone, Droplet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { login, register } from "@/lib/auth";
 import { UserRole } from "@/lib/roles";
 
@@ -25,10 +26,20 @@ export const AuthForm = () => {
     password: '',
     name: '',
     confirmPassword: '',
+    // Hospital specific fields
+    hospitalName: '',
+    address: '',
+    phone: '',
+    licenseNumber: '',
+    // Donor specific fields
+    bloodType: '',
+    dateOfBirth: '',
+    gender: '',
+    medicalConditions: '',
   });
 
   // Handle input change
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -41,6 +52,14 @@ export const AuthForm = () => {
       password: '',
       name: '',
       confirmPassword: '',
+      hospitalName: '',
+      address: '',
+      phone: '',
+      licenseNumber: '',
+      bloodType: '',
+      dateOfBirth: '',
+      gender: '',
+      medicalConditions: '',
     });
     // Reset to donor role when switching to register mode
     if (mode === 'login') {
@@ -65,8 +84,11 @@ export const AuthForm = () => {
           navigate('/dashboard');
         }
       } else {
+        // For hospital registrations, use the hospital name instead of personal name
+        const nameToUse = userRole === 'hospital' ? formData.hospitalName : formData.name;
+        
         const success = await register(
-          formData.name,
+          nameToUse,
           formData.email,
           formData.password,
           userRole
@@ -107,6 +129,9 @@ export const AuthForm = () => {
       }
     }
   };
+  
+  // Blood type options
+  const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   
   return (
     <div className="w-full max-w-md mx-auto">
@@ -153,32 +178,213 @@ export const AuthForm = () => {
           <p className="text-gray-600 text-sm mt-1">
             {mode === 'login' 
               ? 'Sign in to access your account' 
-              : 'Create an account to start donating'}
+              : userRole === 'donor' 
+                ? 'Create an account to start donating' 
+                : 'Register your hospital with our system'}
           </p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'register' && (
-            <div className="space-y-1">
-              <Label htmlFor="name">Full Name</Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <User className="h-4 w-4 text-gray-400" />
-                </div>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="John Doe"
-                  className="pl-10"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
+          {/* User type selection for both login and register */}
+          {(mode === 'register' || mode === 'login') && (
+            <div className="space-y-2">
+              <Label>I am a:</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={userRole === 'donor' ? 'default' : 'outline'}
+                  className={`
+                    border-2 h-auto py-3 px-2 flex flex-col items-center
+                    ${userRole === 'donor' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
+                  `}
+                  onClick={() => setUserRole('donor')}
+                >
+                  <User className="h-4 w-4 mb-1" />
+                  <span className="text-xs font-medium">Donor</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={userRole === 'hospital' ? 'default' : 'outline'}
+                  className={`
+                    border-2 h-auto py-3 px-2 flex flex-col items-center
+                    ${userRole === 'hospital' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
+                  `}
+                  onClick={() => setUserRole('hospital')}
+                >
+                  <Building className="h-4 w-4 mb-1" />
+                  <span className="text-xs font-medium">Hospital</span>
+                </Button>
               </div>
             </div>
           )}
           
+          {/* Register Form Fields - Show different fields based on role */}
+          {mode === 'register' && (
+            <>
+              {userRole === 'donor' ? (
+                // Donor specific registration fields
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="name">Full Name</Label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <User className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="John Doe"
+                        className="pl-10"
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="bloodType">Blood Type</Label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          <Droplet className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <select
+                          id="bloodType"
+                          name="bloodType"
+                          className="pl-10 w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={formData.bloodType}
+                          onChange={(e) => setFormData(prev => ({ ...prev, bloodType: e.target.value }))}
+                        >
+                          <option value="">Select</option>
+                          {bloodTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        name="dateOfBirth"
+                        type="date"
+                        value={formData.dateOfBirth}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="gender">Gender</Label>
+                    <select
+                      id="gender"
+                      name="gender"
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={formData.gender}
+                      onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                    >
+                      <option value="">Select</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer-not-to-say">Prefer not to say</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="medicalConditions">
+                      Medical Conditions <span className="text-xs text-gray-500">(Optional)</span>
+                    </Label>
+                    <Textarea
+                      id="medicalConditions"
+                      name="medicalConditions"
+                      placeholder="List any relevant medical conditions"
+                      value={formData.medicalConditions}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </>
+              ) : (
+                // Hospital specific registration fields
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="hospitalName">Hospital Name</Label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <Building className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <Input
+                        id="hospitalName"
+                        name="hospitalName"
+                        type="text"
+                        placeholder="General Hospital"
+                        className="pl-10"
+                        value={formData.hospitalName}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="address">Address</Label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <Input
+                        id="address"
+                        name="address"
+                        type="text"
+                        placeholder="123 Medical Center Dr, City, State"
+                        className="pl-10"
+                        value={formData.address}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="(555) 123-4567"
+                        className="pl-10"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="licenseNumber">License/Registration Number</Label>
+                    <Input
+                      id="licenseNumber"
+                      name="licenseNumber"
+                      type="text"
+                      placeholder="Enter hospital license number"
+                      value={formData.licenseNumber}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          
+          {/* Common fields for both donor and hospital */}
           <div className="space-y-1">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -241,38 +447,6 @@ export const AuthForm = () => {
                   onChange={handleChange}
                   required
                 />
-              </div>
-            </div>
-          )}
-          
-          {(mode === 'register' || mode === 'login') && (
-            <div className="space-y-2">
-              <Label>I am a:</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={userRole === 'donor' ? 'default' : 'outline'}
-                  className={`
-                    border-2 h-auto py-3 px-2 flex flex-col items-center
-                    ${userRole === 'donor' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
-                  `}
-                  onClick={() => setUserRole('donor')}
-                >
-                  <User className="h-4 w-4 mb-1" />
-                  <span className="text-xs font-medium">Donor</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={userRole === 'hospital' ? 'default' : 'outline'}
-                  className={`
-                    border-2 h-auto py-3 px-2 flex flex-col items-center
-                    ${userRole === 'hospital' ? 'bg-bloodRed-600 hover:bg-bloodRed-700 border-transparent' : 'border-gray-200 hover:border-gray-300'}
-                  `}
-                  onClick={() => setUserRole('hospital')}
-                >
-                  <Building className="h-4 w-4 mb-1" />
-                  <span className="text-xs font-medium">Hospital</span>
-                </Button>
               </div>
             </div>
           )}

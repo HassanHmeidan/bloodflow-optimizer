@@ -82,11 +82,20 @@ export const register = (
   name: string, 
   email: string, 
   password: string, 
-  role: UserRole = 'donor'
+  role: UserRole = 'donor',
+  additionalData: Record<string, any> = {}
 ): Promise<boolean> => {
   return new Promise((resolve) => {
     // Demo registration logic
     if (name && email && password.length >= 6) {
+      // In a real app, we would send this data to the backend
+      console.log('Registration data:', { 
+        name, 
+        email, 
+        role,
+        ...additionalData
+      });
+      
       toast.success("Registration successful!", {
         description: "Please check your email to verify your account.",
       });
