@@ -1,7 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplet, AlertTriangle, Loader2 } from 'lucide-react';
+import { Droplet, AlertTriangle, Loader2, Mail, Bell } from 'lucide-react';
+import { notifyLowStockDonors } from '@/lib/notifications';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 // Mock data for blood inventory
 interface BloodStock {
@@ -25,6 +28,7 @@ export const BloodInventory = () => {
   const [bloodStock, setBloodStock] = useState<BloodStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [notifyingStock, setNotifyingStock] = useState<string | null>(null);
 
   // Simulate API call to fetch blood inventory data
   useEffect(() => {
@@ -68,6 +72,27 @@ export const BloodInventory = () => {
         return 'text-blue-600 fill-blue-200';
       default:
         return 'text-gray-600 fill-gray-200';
+    }
+  };
+
+  // Handle sending notifications to eligible donors for low stock
+  const handleNotifyDonors = async (bloodType: string, units: number) => {
+    setNotifyingStock(bloodType);
+    
+    try {
+      // Calculate threshold based on status (this would be more sophisticated in a real app)
+      const threshold = 20;
+      
+      await notifyLowStockDonors(bloodType as any, units, threshold);
+      
+      toast.success(`Notifications sent for ${bloodType}`, {
+        description: "Eligible donors have been notified about the low stock"
+      });
+    } catch (error) {
+      console.error("Error notifying donors:", error);
+      toast.error("Failed to notify donors");
+    } finally {
+      setNotifyingStock(null);
     }
   };
 
@@ -157,7 +182,7 @@ export const BloodInventory = () => {
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <div className="grid grid-cols-2 gap-2 text-gray-600">
+                      <div className="grid grid-cols-2 gap-2 text-gray-600 mb-3">
                         <div>Compatible donors:</div>
                         <div className="font-medium">
                           {item.type === 'AB+' && "All types"}
@@ -172,6 +197,32 @@ export const BloodInventory = () => {
                         <div>Last updated:</div>
                         <div className="font-medium">1 hour ago</div>
                       </div>
+
+                      {/* Notification button for critical or low stock */}
+                      {(item.status === 'critical' || item.status === 'low') && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full mt-2 flex items-center justify-center"
+                          disabled={notifyingStock === item.type}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNotifyDonors(item.type, item.units);
+                          }}
+                        >
+                          {notifyingStock === item.type ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                              Notifying...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="h-3.5 w-3.5 mr-2" />
+                              Notify Eligible Donors
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

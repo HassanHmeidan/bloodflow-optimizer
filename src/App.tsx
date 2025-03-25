@@ -16,6 +16,7 @@ import Profile from "./pages/Profile";
 import DonorManagementPage from "./pages/DonorManagementPage";
 import BloodRequestsPage from "./pages/BloodRequestsPage";
 import { Chatbot } from "./components/Chatbot";
+import NotificationHistoryPage from "./pages/NotificationHistoryPage";
 
 // This frontend connects to a Python backend API
 // The backend would typically be built with frameworks like:
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
           <Route path="/dashboard/inventory" element={<Dashboard />} />
           <Route path="/dashboard/analytics" element={<Dashboard />} />
+          <Route path="/dashboard/notifications" element={<NotificationHistoryPage />} />
           
           {/* Common redirect routes for the resources in footer */}
           <Route path="/guidelines" element={<About />} />

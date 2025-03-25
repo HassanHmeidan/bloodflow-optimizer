@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
@@ -8,14 +7,22 @@ import { DonorAppointment } from "@/components/DonorAppointment";
 import { AppointmentHistory } from "@/components/AppointmentHistory";
 import { DonorManagement } from "@/components/DonorManagement";
 import { BloodRequestManagement, BloodRequestForm } from "@/components/BloodRequestManagement";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { getUserProfile, getUserRole, logout } from "@/lib/auth";
+import { 
+  notifyLowStockDonors, 
+  sendDonationConfirmation, 
+  sendAppointmentReminder 
+} from "@/lib/notifications";
 import {
   User,
   Droplet,
@@ -33,8 +40,23 @@ import {
   Check,
   X,
   Search,
-  Loader2
+  Loader2,
+  Mail,
+  CheckCircle,
+  Smartphone
 } from 'lucide-react';
+
+// Mock data for blood inventory
+const mockBloodStockData = [
+  { type: 'A+', units: 45, status: 'normal' },
+  { type: 'A-', units: 12, status: 'low' },
+  { type: 'B+', units: 38, status: 'normal' },
+  { type: 'B-', units: 5, status: 'critical' },
+  { type: 'AB+', units: 18, status: 'normal' },
+  { type: 'AB-', units: 3, status: 'critical' },
+  { type: 'O+', units: 72, status: 'excess' },
+  { type: 'O-', units: 9, status: 'low' },
+];
 
 // Notification system
 const setupNotificationListener = () => {
@@ -354,6 +376,30 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  // Function to handle low stock alerts - for admin panel
+  const handleLowStockAlert = async (bloodType: string) => {
+    const type = bloodType as any; // Type assertion for the function parameter
+    
+    try {
+      // Get the current inventory
+      const stock = mockBloodStockData.find(item => item.type === bloodType);
+      
+      if (!stock) {
+        toast.error(`Blood type ${bloodType} not found in inventory`);
+        return;
+      }
+      
+      await notifyLowStockDonors(type, stock.units, 20);
+      
+      toast.success(`Low stock alert sent for ${bloodType}`, {
+        description: "Eligible donors have been notified"
+      });
+    } catch (error) {
+      console.error("Error sending low stock alert:", error);
+      toast.error("Failed to send low stock alert");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -368,64 +414,59 @@ const Dashboard = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-grow pt-16">
-        {/* Dashboard Header */}
-        <div className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white py-8 px-4">
-          <div className="container mx-auto">
-            <motion.div
-              className="flex flex-col md:flex-row justify-between items-start md:items-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div>
-                <h1 className="text-2xl font-bold mb-2">
-                  {userRole === 'donor' && 'Donor Dashboard'}
-                  {userRole === 'hospital' && 'Hospital Dashboard'}
-                  {userRole === 'admin' && 'Admin Control Panel'}
-                </h1>
-                <p className="text-white/80">
-                  {userRole === 'donor' && `Welcome back, ${userName}! Track your donations and find nearby blood drives`}
-                  {userRole === 'hospital' && `Welcome back, ${userName}! Manage blood requests and inventory`}
-                  {userRole === 'admin' && `Welcome back, ${userName}! Monitor system activity and manage users`}
-                </p>
-              </div>
-              <div className="mt-4 md:mt-0 flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                  onClick={() => navigate('/profile')}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        </div>
+  // Donor Dashboard
+  if (userRole === 'donor') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
         
-        {/* Dashboard Content */}
-        <div className="container mx-auto px-4 py-8">
-          {/* Donor Dashboard */}
-          {userRole === 'donor' && (
+        <main className="flex-grow pt-16">
+          {/* Dashboard Header */}
+          <div className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white py-8 px-4">
+            <div className="container mx-auto">
+              <motion.div
+                className="flex flex-col md:flex-row justify-between items-start md:items-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">Donor Dashboard</h1>
+                  <p className="text-white/80">
+                    Welcome back, {userName}! Track your donations and find nearby blood drives
+                  </p>
+                </div>
+                <div className="mt-4 md:mt-0 flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+          
+          {/* Dashboard Content */}
+          <div className="container mx-auto px-4 py-8">
             <div className="animate-slide-up">
               <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="mb-6">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="donations">My Donations</TabsTrigger>
                   <TabsTrigger value="appointments">Appointments</TabsTrigger>
+                  <TabsTrigger value="notifications">Notifications</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="overview" className="space-y-6">
@@ -626,12 +667,134 @@ const Dashboard = () => {
                     <AppointmentHistory />
                   </div>
                 </TabsContent>
+                
+                {/* New Notifications Tab */}
+                <TabsContent value="notifications">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <NotificationSettings />
+                    </div>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Bell className="h-5 w-5 mr-2" />
+                          Recent Notifications
+                        </CardTitle>
+                        <CardDescription>
+                          Your latest alerts and communications
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* We'll show mock notifications or actual ones if they exist */}
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="flex items-start p-3 border rounded-lg">
+                              <div className="w-8 h-8 rounded-full bg-bloodRed-50 flex items-center justify-center mr-3">
+                                {i === 0 ? (
+                                  <Bell className="h-4 w-4 text-bloodRed-600" />
+                                ) : i === 1 ? (
+                                  <Calendar className="h-4 w-4 text-blue-600" />
+                                ) : (
+                                  <Droplet className="h-4 w-4 text-green-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {i === 0 
+                                    ? "Urgent: Blood Type O- Needed" 
+                                    : i === 1 
+                                    ? "Appointment Reminder" 
+                                    : "Thank You for Donating"}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {i === 0
+                                    ? "Your blood type is in high demand. Please consider donating soon."
+                                    : i === 1
+                                    ? "Your donation appointment is scheduled for tomorrow at 2:00 PM."
+                                    : "Your recent donation has helped save lives. Thank you!"}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-2">
+                                  {i === 0
+                                    ? "2 hours ago"
+                                    : i === 1
+                                    ? "1 day ago"
+                                    : "1 week ago"}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="mt-6 flex justify-center">
+                          <Button 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => navigate('/dashboard/notifications')}
+                          >
+                            View All Notifications
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
               </Tabs>
             </div>
-          )}
+          </div>
+        </main>
+        
+        <Footer />
+      </div>
+    );
+  }
+  
+  // Hospital Dashboard
+  if (userRole === 'hospital') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        
+        <main className="flex-grow pt-16">
+          {/* Dashboard Header */}
+          <div className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white py-8 px-4">
+            <div className="container mx-auto">
+              <motion.div
+                className="flex flex-col md:flex-row justify-between items-start md:items-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">Hospital Dashboard</h1>
+                  <p className="text-white/80">
+                    Welcome back, {userName}! Manage blood requests and inventory
+                  </p>
+                </div>
+                <div className="mt-4 md:mt-0 flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
           
-          {/* Hospital Dashboard */}
-          {userRole === 'hospital' && (
+          {/* Dashboard Content */}
+          <div className="container mx-auto px-4 py-8">
             <div className="animate-slide-up">
               <Tabs defaultValue="requests" className="w-full">
                 <TabsList className="mb-6">
@@ -790,10 +953,60 @@ const Dashboard = () => {
                 </TabsContent>
               </Tabs>
             </div>
-          )}
+          </div>
+        </main>
+        
+        <Footer />
+      </div>
+    );
+  }
+  
+  // Admin Dashboard
+  if (userRole === 'admin' && adminData) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        
+        <main className="flex-grow pt-16">
+          {/* Dashboard Header */}
+          <div className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white py-8 px-4">
+            <div className="container mx-auto">
+              <motion.div
+                className="flex flex-col md:flex-row justify-between items-start md:items-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">Admin Control Panel</h1>
+                  <p className="text-white/80">
+                    Welcome back, {userName}! Monitor system activity and manage users
+                  </p>
+                </div>
+                <div className="mt-4 md:mt-0 flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
           
-          {/* Admin Dashboard */}
-          {userRole === 'admin' && adminData && (
+          {/* Admin Dashboard Content */}
+          <div className="container mx-auto px-4 py-8">
             <div className="animate-slide-up">
               <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="mb-6">
@@ -801,6 +1014,7 @@ const Dashboard = () => {
                   <TabsTrigger value="donors">Donor Management</TabsTrigger>
                   <TabsTrigger value="requests">Blood Requests</TabsTrigger>
                   <TabsTrigger value="inventory">Inventory</TabsTrigger>
+                  <TabsTrigger value="notifications">Notifications</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="overview" className="space-y-6">
@@ -1084,12 +1298,141 @@ const Dashboard = () => {
                     </CardContent>
                   </Card>
                 </TabsContent>
+                
+                {/* New Notifications Tab for Admin */}
+                <TabsContent value="notifications">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Low Stock Alerts</CardTitle>
+                        <CardDescription>
+                          Send notifications to eligible donors for low blood stock
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {mockBloodStockData
+                            .filter(stock => stock.status === 'critical' || stock.status === 'low')
+                            .map((stock, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center">
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+                                    stock.status === 'critical' ? 'bg-red-50' : 'bg-amber-50'
+                                  }`}>
+                                    <Droplet className={`h-5 w-5 ${
+                                      stock.status === 'critical' ? 'text-red-600' : 'text-amber-600'
+                                    }`} />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">Blood Type {stock.type}</p>
+                                    <div className="flex items-center">
+                                      <span className="text-sm text-gray-600">{stock.units} units available</span>
+                                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                                        stock.status === 'critical' 
+                                          ? 'bg-red-100 text-red-700' 
+                                          : 'bg-amber-100 text-amber-700'
+                                      }`}>
+                                        {stock.status.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleLowStockAlert(stock.type)}
+                                >
+                                  <Mail className="h-3.5 w-3.5 mr-2" />
+                                  Send Alert
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                        
+                        {mockBloodStockData.filter(stock => stock.status === 'critical' || stock.status === 'low').length === 0 && (
+                          <div className="flex flex-col items-center justify-center text-center py-6">
+                            <CheckCircle className="h-12 w-12 text-green-500 mb-3" />
+                            <h3 className="text-lg font-medium">All Blood Types at Healthy Levels</h3>
+                            <p className="text-gray-600 mt-1">No critical or low stock alerts at this time</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Notification Settings</CardTitle>
+                        <CardDescription>
+                          Configure system-wide notification preferences
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          <div className="space-y-3">
+                            <Label className="text-base">Automatic Notifications</Label>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm">
+                                <p className="font-medium">Critical Stock Alerts</p>
+                                <p className="text-gray-500">Automatically notify donors when inventory falls below critical levels</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm">
+                                <p className="font-medium">Appointment Reminders</p>
+                                <p className="text-gray-500">Send reminders 24 hours before scheduled appointments</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm">
+                                <p className="font-medium">Donation Thank You</p>
+                                <p className="text-gray-500">Send thank you messages after successful donations</p>
+                              </div>
+                              <Switch defaultChecked />
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div>
+                            <Button 
+                              variant="outline" 
+                              className="w-full justify-between"
+                              onClick={() => navigate('/dashboard/notifications')}
+                            >
+                              View Notification History
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
               </Tabs>
             </div>
-          )}
+          </div>
+        </main>
+        
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <div className="flex-grow flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-6">You don't have permission to access this dashboard.</p>
+          <Button onClick={() => navigate('/')}>Return to Home</Button>
         </div>
-      </main>
-      
+      </div>
       <Footer />
     </div>
   );
