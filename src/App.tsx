@@ -63,6 +63,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
+          {/* Core Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -70,8 +71,13 @@ const App = () => (
           <Route path="/request" element={<Request />} />
           <Route path="/about" element={<About />} />
           <Route path="/profile" element={<Profile />} />
+          
+          {/* Admin/Dashboard Routes */}
           <Route path="/dashboard/donors" element={<DonorManagementPage />} />
           <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
+          <Route path="/dashboard/inventory" element={<Dashboard />} />
+          <Route path="/dashboard/analytics" element={<Dashboard />} />
+          
           {/* Common redirect routes for the resources in footer */}
           <Route path="/guidelines" element={<About />} />
           <Route path="/blood-types" element={<About />} />
@@ -82,6 +88,7 @@ const App = () => (
           <Route path="/terms" element={<About />} />
           <Route path="/cookies" element={<About />} />
           <Route path="/faqs" element={<About />} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

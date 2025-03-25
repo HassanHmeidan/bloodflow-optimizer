@@ -1,3 +1,4 @@
+
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertCircle, FileText, CalendarClock, ShieldAlert } from 'lucide-react';
+import { AlertCircle, FileText, CalendarClock, ShieldAlert, Stethoscope, Clipboard, Building } from 'lucide-react';
 import { isAuthenticated, getUserRole } from "@/lib/auth";
 
 const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -50,7 +51,7 @@ const Request = () => {
     // Simulate API call
     setTimeout(() => {
       toast.success("Blood request submitted successfully", {
-        description: "We'll notify you once your request is processed.",
+        description: "We've initiated our AI-matching process to find eligible donors. You'll be notified as soon as matches are found.",
         duration: 5000,
       });
       setLoading(false);
@@ -75,10 +76,10 @@ const Request = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <FileText className="h-16 w-16 mx-auto mb-6 text-white" />
+                <Building className="h-16 w-16 mx-auto mb-6 text-white" />
                 <h1 className="text-3xl sm:text-4xl font-bold mb-4">Request Blood</h1>
                 <p className="text-xl text-white/80">
-                  Fill out the form below to request blood for a patient in need.
+                  Secure request system for verified hospitals. Our AI will help match your request with eligible donors.
                 </p>
               </motion.div>
             </div>
@@ -99,7 +100,8 @@ const Request = () => {
                   <ShieldAlert className="h-16 w-16 text-amber-500 mx-auto mb-4" />
                   <h2 className="text-2xl font-bold mb-3">Hospital Authentication Required</h2>
                   <p className="text-gray-600 mb-6">
-                    Only registered hospitals can submit blood requests. Please sign in with your hospital account to continue.
+                    For patient safety and security, only verified hospital accounts can submit blood requests. 
+                    Please sign in with your hospital credentials to continue.
                   </p>
                   <Button 
                     onClick={handleSignIn}
@@ -197,6 +199,13 @@ const Request = () => {
                       </div>
                     </div>
                     
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-start">
+                      <Stethoscope className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-blue-800">
+                        <strong>AI-Assisted Processing:</strong> Our system uses artificial intelligence to match your request with the most suitable donors based on blood type, location, and availability. This speeds up the fulfillment process significantly.
+                      </div>
+                    </div>
+                    
                     <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg flex items-start">
                       <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-amber-800">
@@ -230,9 +239,9 @@ const Request = () => {
                 transition={{ duration: 0.5 }}
                 className="text-center mb-12"
               >
-                <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+                <h2 className="text-3xl font-bold mb-4">Hospital Request Process</h2>
                 <p className="text-gray-600">
-                  Understanding the blood request process from submission to delivery.
+                  How our AI-powered system processes blood requests from submission to delivery.
                 </p>
               </motion.div>
               
@@ -240,17 +249,22 @@ const Request = () => {
                 {[
                   {
                     title: "Submit Request",
-                    description: "Fill out the request form with all required patient and medical information.",
+                    description: "Hospital submits a verified request with all required patient and medical information.",
                     icon: FileText,
                   },
                   {
-                    title: "Request Processing",
-                    description: "Our team reviews your request and matches it with available blood inventory.",
+                    title: "AI-Powered Matching",
+                    description: "Our intelligent system analyzes the request and matches it with available inventory and suitable donors.",
+                    icon: Clipboard,
+                  },
+                  {
+                    title: "Rapid Processing",
+                    description: "Requests are prioritized based on urgency level, with emergency needs fast-tracked.",
                     icon: CalendarClock,
                   },
                   {
-                    title: "Confirmation",
-                    description: "You'll receive a confirmation when your request is approved with delivery details.",
+                    title: "Confirmation & Delivery",
+                    description: "You'll receive a confirmation with delivery details and real-time tracking information.",
                     icon: AlertCircle,
                   },
                 ].map((step, index) => (
