@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
@@ -9,6 +8,7 @@ interface NotificationPreferences {
   email: boolean;
   sms: boolean;
   app: boolean;
+  bulkNotifications: boolean;
 }
 
 interface NotificationData {
@@ -227,10 +227,10 @@ export const sendBatchAppointmentReminders = async (appointments: { email: strin
 const getMockEligibleDonors = (bloodType: BloodType): { name: string, email: string, bloodType: BloodType }[] => {
   // In a real app, this would be filtered based on eligibility, last donation date, etc.
   return [
-    { name: "John Smith", email: "john.smith@example.com", bloodType: 'O-' as BloodType },
-    { name: "Maria Garcia", email: "maria.garcia@example.com", bloodType: 'A+' as BloodType },
-    { name: "David Lee", email: "david.lee@example.com", bloodType: 'B-' as BloodType },
-    { name: "Sarah Johnson", email: "sarah.johnson@example.com", bloodType: 'AB+' as BloodType },
+    { name: "John Smith", email: "john.smith@example.com", bloodType: 'O-' },
+    { name: "Maria Garcia", email: "maria.garcia@example.com", bloodType: 'A+' },
+    { name: "David Lee", email: "david.lee@example.com", bloodType: 'B-' },
+    { name: "Sarah Johnson", email: "sarah.johnson@example.com", bloodType: 'AB+' },
   ].filter(donor => {
     // Filter based on compatible blood types
     if (bloodType === 'O-') return donor.bloodType === 'O-';
@@ -252,7 +252,7 @@ export const saveNotificationPreferences = (userId: string, preferences: Notific
 
 // Get notification preferences from localStorage
 export const getNotificationPreferences = (userId: string): NotificationPreferences => {
-  const defaultPreferences = { email: true, sms: false, app: true };
+  const defaultPreferences = { email: true, sms: false, app: true, bulkNotifications: true };
   const savedPreferences = localStorage.getItem(`notificationPreferences_${userId}`);
   
   return savedPreferences ? JSON.parse(savedPreferences) : defaultPreferences;

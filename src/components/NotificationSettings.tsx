@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -6,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Droplet, Loader2, Users } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences } from '@/lib/notifications';
 
 export const NotificationSettings = () => {
@@ -33,10 +32,6 @@ export const NotificationSettings = () => {
     
     // Load notification preferences
     const userPreferences = getNotificationPreferences(userId);
-    // Add bulk notification preference if it doesn't exist
-    if (userPreferences.bulkNotifications === undefined) {
-      userPreferences.bulkNotifications = true;
-    }
     setPreferences(userPreferences);
   }, []);
 
