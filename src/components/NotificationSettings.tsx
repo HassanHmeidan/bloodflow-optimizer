@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Droplet, Loader2 } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences } from '@/lib/notifications';
 
 export const NotificationSettings = () => {
