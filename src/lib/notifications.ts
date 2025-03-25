@@ -70,7 +70,55 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
   }
 };
 
-// Function to notify donors about low blood stock
+// Function to send bulk notifications instead of notifying each donor individually
+export const sendBulkNotification = async (recipients: string[], subject: string, message: string, event: NotificationEvent, details?: { bloodType?: BloodType, units?: number }): Promise<boolean> => {
+  if (recipients.length === 0) {
+    console.log("No recipients provided for bulk notification");
+    return false;
+  }
+  
+  try {
+    // In a real app, this would call a bulk email service
+    // await emailService.sendBulk({ to: recipients, subject, body });
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    
+    toast.success("Bulk notification sent", {
+      description: `Notification sent to ${recipients.length} recipients`
+    });
+    
+    // For demo purposes, log each recipient but only send one actual notification
+    console.log(`Bulk notification sent to ${recipients.length} recipients`);
+    console.log(`Recipients: ${recipients.join(', ')}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Message: ${message}`);
+    
+    // Save a single entry to notification history for the bulk send
+    const notificationHistory = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
+    notificationHistory.push({
+      recipient: `${recipients.length} recipients`,
+      subject,
+      message,
+      event,
+      bloodType: details?.bloodType,
+      units: details?.units,
+      timestamp: new Date().toISOString(),
+      type: 'email',
+      status: 'sent',
+      isBulk: true
+    });
+    localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory));
+    
+    return true;
+  } catch (error) {
+    console.error("Error sending bulk notification:", error);
+    toast.error("Failed to send bulk notification", {
+      description: "An error occurred while sending notifications."
+    });
+    return false;
+  }
+};
+
+// Function to notify donors about low blood stock (updated to use bulk notification)
 export const notifyLowStockDonors = async (bloodType: BloodType, currentUnits: number, threshold: number): Promise<void> => {
   // In a real app, you would fetch eligible donors from a database
   const eligibleDonors = getMockEligibleDonors(bloodType);
@@ -83,23 +131,20 @@ export const notifyLowStockDonors = async (bloodType: BloodType, currentUnits: n
   const subject = `Urgent: ${bloodType} Blood Stock is Low`;
   const message = `Our ${bloodType} blood supply is critically low with only ${currentUnits} units available. As someone with compatible blood type, your donation would be incredibly valuable right now. Please consider scheduling a donation appointment soon.`;
   
-  let successCount = 0;
+  // Extract just the email addresses
+  const recipientEmails = eligibleDonors.map(donor => donor.email);
   
-  for (const donor of eligibleDonors) {
-    const success = await sendEmailNotification({
-      recipient: donor.email,
-      subject,
-      message,
-      event: 'lowStock',
-      bloodType,
-      units: currentUnits
-    });
-    
-    if (success) successCount++;
-  }
+  // Send as a single bulk notification instead of individual notifications
+  const success = await sendBulkNotification(
+    recipientEmails,
+    subject,
+    message,
+    'lowStock',
+    { bloodType, units: currentUnits }
+  );
   
-  if (successCount > 0) {
-    toast.success(`Notified ${successCount} eligible donors about low ${bloodType} stock`);
+  if (success) {
+    toast.success(`Notified ${eligibleDonors.length} eligible donors about low ${bloodType} stock`);
   }
 };
 
@@ -143,6 +188,39 @@ export const sendRequestApprovalNotification = async (hospitalEmail: string, blo
     bloodType,
     units
   });
+};
+
+// Function to send batch appointment reminders (for multiple appointments on the same day)
+export const sendBatchAppointmentReminders = async (appointments: { email: string, date: string, location: string, timeSlot: string }[]): Promise<void> => {
+  if (appointments.length === 0) return;
+  
+  // Group appointments by date and location
+  const groupedByDateAndLocation: Record<string, typeof appointments> = {};
+  
+  appointments.forEach(appointment => {
+    const key = `${appointment.date}_${appointment.location}`;
+    if (!groupedByDateAndLocation[key]) {
+      groupedByDateAndLocation[key] = [];
+    }
+    groupedByDateAndLocation[key].push(appointment);
+  });
+  
+  // Send bulk notifications for each group
+  for (const key in groupedByDateAndLocation) {
+    const group = groupedByDateAndLocation[key];
+    const [date, location] = key.split('_');
+    
+    const recipientEmails = group.map(appointment => appointment.email);
+    const subject = "Upcoming Blood Donation Appointments";
+    const message = `This is a reminder about your upcoming blood donation appointment on ${date} at ${location}. Please remember to bring a valid ID and stay hydrated.`;
+    
+    await sendBulkNotification(
+      recipientEmails,
+      subject,
+      message,
+      'appointment'
+    );
+  }
 };
 
 // Mock function to get eligible donors (in a real app, this would be a database query)

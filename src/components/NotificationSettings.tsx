@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Droplet, Loader2 } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Droplet, Loader2, Users } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences } from '@/lib/notifications';
 
 export const NotificationSettings = () => {
@@ -15,7 +15,8 @@ export const NotificationSettings = () => {
   const [preferences, setPreferences] = useState({
     email: true,
     sms: false,
-    app: true
+    app: true,
+    bulkNotifications: true
   });
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +33,10 @@ export const NotificationSettings = () => {
     
     // Load notification preferences
     const userPreferences = getNotificationPreferences(userId);
+    // Add bulk notification preference if it doesn't exist
+    if (userPreferences.bulkNotifications === undefined) {
+      userPreferences.bulkNotifications = true;
+    }
     setPreferences(userPreferences);
   }, []);
 
@@ -148,6 +153,22 @@ export const NotificationSettings = () => {
                 id="app-notifications"
                 checked={preferences.app}
                 onCheckedChange={(checked) => setPreferences({...preferences, app: checked})}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-gray-500" />
+                <div>
+                  <Label htmlFor="bulk-notifications" className="cursor-pointer">Receive Bulk Notifications</Label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enable to receive bulk notifications instead of individual ones
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="bulk-notifications"
+                checked={preferences.bulkNotifications}
+                onCheckedChange={(checked) => setPreferences({...preferences, bulkNotifications: checked})}
               />
             </div>
           </div>
