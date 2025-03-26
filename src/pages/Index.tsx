@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -9,8 +8,6 @@ import {
   Heart, 
   Search, 
   ArrowRight, 
-  Calendar,
-  Clock,
   UserPlus,
   Droplet,
   BarChart3,
@@ -33,7 +30,6 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [donorRecommendation, setDonorRecommendation] = useState('');
   
-  // Get AI-based donor recommendation for the hero section
   useEffect(() => {
     const fetchRecommendation = async () => {
       const recommendation = await getTargetedDonorRecommendations(null);
@@ -43,21 +39,18 @@ const Index = () => {
     fetchRecommendation();
   }, []);
 
-  // Mock data for latest donations
   const latestDonations = [
     { id: 1, donor: 'John Smith', bloodType: 'O+', amount: '450ml', date: '2023-06-15' },
     { id: 2, donor: 'Maria Garcia', bloodType: 'A-', amount: '450ml', date: '2023-06-14' },
     { id: 3, donor: 'Robert Chen', bloodType: 'B+', amount: '450ml', date: '2023-06-13' },
   ];
 
-  // Mock data for pending blood requests
   const pendingRequests = [
     { id: 1, hospital: 'General Hospital', bloodType: 'O-', units: 3, urgency: 'High', status: 'Pending' },
     { id: 2, hospital: 'St. Mary\'s', bloodType: 'AB+', units: 1, urgency: 'Medium', status: 'Approved' },
     { id: 3, hospital: 'Community Medical', bloodType: 'B-', units: 2, urgency: 'Low', status: 'Needed' },
   ];
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -83,7 +76,6 @@ const Index = () => {
       <Navbar />
       
       <main className="flex-grow pt-16">
-        {/* Hero Section with Search */}
         <section className="py-8 bg-white border-b">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -91,7 +83,6 @@ const Index = () => {
                 <h1 className="text-3xl font-bold mb-4">Blood Bank Management System</h1>
                 <p className="text-gray-600 mb-6">{donorRecommendation || "Join our network of donors and help save lives. One donation can save up to three lives."}</p>
                 
-                {/* Search Bar */}
                 <div className="relative w-full max-w-md">
                   <Input
                     type="text"
@@ -104,7 +95,6 @@ const Index = () => {
                 </div>
               </div>
               
-              {/* Quick Action Buttons */}
               <motion.div 
                 className="w-full md:w-1/2 space-y-3"
                 variants={containerVariants}
@@ -143,7 +133,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Blood Inventory Section */}
         <section className="py-8 bg-gray-50">
           <div className="container mx-auto px-4">
             <h2 className="text-2xl font-bold mb-6">Blood Stock Overview</h2>
@@ -151,11 +140,9 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Tables Section */}
         <section className="py-8 bg-white">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Latest Donations Table */}
               <Card>
                 <CardHeader>
                   <CardTitle>Latest Donations Table</CardTitle>
@@ -191,7 +178,6 @@ const Index = () => {
                 </CardContent>
               </Card>
               
-              {/* Pending Blood Requests Table */}
               <Card>
                 <CardHeader>
                   <CardTitle>Pending Blood Requests Table</CardTitle>
@@ -237,7 +223,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Call To Action */}
         <section className="py-12 bg-gradient-to-r from-bloodRed-600 to-bloodRed-800 text-white">
           <div className="container mx-auto px-4 text-center">
             <Heart className="h-12 w-12 mx-auto mb-4 text-white" />

@@ -1,27 +1,50 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Droplet, AlertTriangle, Loader2, Mail, Bell } from 'lucide-react';
+import { Droplet, AlertTriangle, Loader2, Mail, Bell, MapPin } from 'lucide-react';
 import { notifyLowStockDonors } from '@/lib/notifications';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { LocationFilter, bloodStorageLocations } from './LocationFilter';
 
 // Mock data for blood inventory
 interface BloodStock {
   type: string;
   units: number;
   status: 'critical' | 'low' | 'normal' | 'excess';
+  locationId?: number; // Added locationId
 }
 
 const mockBloodStockData: BloodStock[] = [
-  { type: 'A+', units: 45, status: 'normal' },
-  { type: 'A-', units: 12, status: 'low' },
-  { type: 'B+', units: 38, status: 'normal' },
-  { type: 'B-', units: 5, status: 'critical' },
-  { type: 'AB+', units: 18, status: 'normal' },
-  { type: 'AB-', units: 3, status: 'critical' },
-  { type: 'O+', units: 72, status: 'excess' },
-  { type: 'O-', units: 9, status: 'low' },
+  { type: 'A+', units: 45, status: 'normal', locationId: 1 },
+  { type: 'A-', units: 12, status: 'low', locationId: 2 },
+  { type: 'B+', units: 38, status: 'normal', locationId: 3 },
+  { type: 'B-', units: 5, status: 'critical', locationId: 5 },
+  { type: 'AB+', units: 18, status: 'normal', locationId: 4 },
+  { type: 'AB-', units: 3, status: 'critical', locationId: 5 },
+  { type: 'O+', units: 72, status: 'excess', locationId: 3 },
+  { type: 'O-', units: 9, status: 'low', locationId: 1 },
+];
+
+// Add more variations for each blood type at different locations
+const expandedMockData: BloodStock[] = [
+  ...mockBloodStockData,
+  { type: 'A+', units: 28, status: 'normal', locationId: 2 },
+  { type: 'A+', units: 15, status: 'low', locationId: 3 },
+  { type: 'A+', units: 6, status: 'critical', locationId: 5 },
+  { type: 'A-', units: 8, status: 'low', locationId: 1 },
+  { type: 'A-', units: 4, status: 'critical', locationId: 4 },
+  { type: 'B+', units: 22, status: 'normal', locationId: 1 },
+  { type: 'B+', units: 14, status: 'low', locationId: 4 },
+  { type: 'B-', units: 7, status: 'critical', locationId: 2 },
+  { type: 'AB+', units: 11, status: 'normal', locationId: 3 },
+  { type: 'AB+', units: 5, status: 'critical', locationId: 5 },
+  { type: 'AB-', units: 2, status: 'critical', locationId: 1 },
+  { type: 'AB-', units: 9, status: 'low', locationId: 3 },
+  { type: 'O+', units: 38, status: 'normal', locationId: 2 },
+  { type: 'O+', units: 25, status: 'normal', locationId: 4 },
+  { type: 'O-', units: 15, status: 'low', locationId: 3 },
+  { type: 'O-', units: 4, status: 'critical', locationId: 4 },
 ];
 
 export const BloodInventory = () => {
@@ -29,19 +52,45 @@ export const BloodInventory = () => {
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [notifyingStock, setNotifyingStock] = useState<string | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   // Simulate API call to fetch blood inventory data
   useEffect(() => {
     const fetchData = async () => {
       // In a real app, this would be an API call
       setTimeout(() => {
-        setBloodStock(mockBloodStockData);
+        setBloodStock(expandedMockData);
         setLoading(false);
       }, 1000);
     };
 
     fetchData();
   }, []);
+
+  // Filter blood stock based on selected location
+  const filteredBloodStock = bloodStock.filter(item => {
+    if (!selectedLocationId) return true;
+    return item.locationId === selectedLocationId;
+  });
+
+  // Get aggregated blood stock data for display
+  const aggregatedBloodStock = filteredBloodStock.reduce((acc, item) => {
+    const existingType = acc.find(x => x.type === item.type);
+    if (existingType) {
+      existingType.units += item.units;
+      // Update status based on total units
+      if (existingType.units <= 5) existingType.status = 'critical';
+      else if (existingType.units <= 15) existingType.status = 'low';
+      else if (existingType.units >= 60) existingType.status = 'excess';
+      else existingType.status = 'normal';
+    } else {
+      acc.push({ ...item });
+    }
+    return acc;
+  }, [] as BloodStock[]);
+
+  // Sort blood types alphabetically
+  const sortedBloodStock = [...aggregatedBloodStock].sort((a, b) => a.type.localeCompare(b.type));
 
   // Get status color based on inventory level
   const getStatusColor = (status: BloodStock['status']) => {
@@ -96,10 +145,17 @@ export const BloodInventory = () => {
     }
   };
 
+  // Get selected location name
+  const getSelectedLocationName = () => {
+    if (!selectedLocationId) return "All Locations";
+    const location = bloodStorageLocations.find(loc => loc.id === selectedLocationId);
+    return location ? location.name : "Unknown Location";
+  };
+
   return (
-    <section className="py-16 bg-white">
+    <section className="py-8 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <motion.h2 
             className="text-3xl font-bold mb-4"
             initial={{ opacity: 0, y: 20 }}
@@ -120,6 +176,22 @@ export const BloodInventory = () => {
           </motion.p>
         </div>
 
+        {/* Location Filter */}
+        <LocationFilter 
+          onSelectLocation={setSelectedLocationId}
+          selectedLocationId={selectedLocationId}
+        />
+
+        {/* Current Location Display */}
+        {selectedLocationId && (
+          <div className="mb-4 flex items-center justify-center">
+            <div className="inline-flex items-center bg-bloodRed-50 text-bloodRed-700 px-4 py-2 rounded-full">
+              <MapPin className="h-4 w-4 mr-2" />
+              <span className="font-medium">Viewing: {getSelectedLocationName()}</span>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center items-center py-16">
             <Loader2 className="animate-spin h-8 w-8 text-bloodRed-600" />
@@ -127,9 +199,9 @@ export const BloodInventory = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-            {bloodStock.map((item) => (
+            {sortedBloodStock.map((item, index) => (
               <motion.div
-                key={item.type}
+                key={`${item.type}-${index}`}
                 className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow overflow-hidden"
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -197,6 +269,16 @@ export const BloodInventory = () => {
                         <div>Last updated:</div>
                         <div className="font-medium">1 hour ago</div>
                       </div>
+
+                      {/* Show location if not filtered */}
+                      {!selectedLocationId && item.locationId && (
+                        <div className="mb-3">
+                          <div className="text-gray-600">Available at:</div>
+                          <div className="font-medium">
+                            {bloodStorageLocations.find(loc => loc.id === item.locationId)?.name || 'Unknown location'}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Notification button for critical or low stock */}
                       {(item.status === 'critical' || item.status === 'low') && (
