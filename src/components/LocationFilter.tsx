@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/use-toast';
 
 // Define the props interface for the LocationFilter component
 interface LocationFilterProps {
@@ -106,43 +107,59 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
 
   // Filter locations based on search query and selected type
   useEffect(() => {
-    let results = mockLocations;
+    try {
+      let results = mockLocations;
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      results = results.filter(
-        location => location.name.toLowerCase().includes(query) || 
-                    location.address.toLowerCase().includes(query)
-      );
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        results = results.filter(
+          location => location.name.toLowerCase().includes(query) || 
+                      location.address.toLowerCase().includes(query)
+        );
+      }
+
+      // Filter by location type
+      if (selectedType) {
+        results = results.filter(location => location.type === selectedType);
+      }
+
+      setFilteredLocations(results);
+    } catch (error) {
+      console.error("Error filtering locations:", error);
+      if (onError && error instanceof Error) {
+        onError(error);
+      }
     }
-
-    // Filter by location type
-    if (selectedType) {
-      results = results.filter(location => location.type === selectedType);
-    }
-
-    setFilteredLocations(results);
-  }, [searchQuery, selectedType]);
+  }, [searchQuery, selectedType, onError]);
 
   // Handle location selection
   const handleSelectLocation = (location: LocationData) => {
-    setSelectedLocation(location);
-    onLocationSelect(location);
+    try {
+      setSelectedLocation(location);
+      onLocationSelect(location);
+    } catch (error) {
+      console.error("Error selecting location:", error);
+      if (onError && error instanceof Error) {
+        onError(error);
+      }
+    }
   };
 
-  // Simulate loading a map with a delay
+  // Simulate loading a map with a delay (without actually trying to load Mapbox)
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        // Simulate map loading success for demo purposes
+        // Simply set map as loaded for the UI
         setMapLoaded(true);
+        console.log("Map placeholder loaded successfully");
       } catch (error) {
+        console.error("Error in map loading simulation:", error);
         if (onError && error instanceof Error) {
           onError(error);
         }
       }
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [onError]);

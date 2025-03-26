@@ -9,6 +9,7 @@ if (!rootElement) {
   console.error("Failed to find the root element. The app cannot be mounted.");
 } else {
   try {
+    console.log("Attempting to mount the application...");
     createRoot(rootElement).render(<App />);
     console.log("Application successfully mounted");
   } catch (error) {

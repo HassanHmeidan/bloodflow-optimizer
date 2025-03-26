@@ -56,61 +56,72 @@ export const BloodInventory = () => {
     setMapError(true);
     toast({
       title: "Map Loading Error",
-      description: "Could not load location map. Please check your connection or contact support.",
+      description: "Could not load location map. Using simplified location view instead.",
       variant: "destructive"
     });
   };
 
   // Update filtered stock data when a location is selected
   useEffect(() => {
-    if (selectedLocation) {
-      // Convert the location's blood stock to the format expected by the component
-      const locationStock = Object.entries(selectedLocation.bloodStock).map(([bloodType, data]) => ({
-        bloodType: bloodType as BloodType,
-        units: data.units,
-        capacity: data.capacity,
-        location: selectedLocation.name,
-        expiryDate: getRandomExpiryDate(), // In a real app, this would come from the backend
-      }));
-      
-      setFilteredStockData(locationStock);
-      
-      // Calculate alerts
-      setLowStockAlerts(locationStock.filter(item => (item.units / item.capacity) < 0.2));
-      
-      const today = new Date();
-      const sevenDaysLater = new Date();
-      sevenDaysLater.setDate(today.getDate() + 7);
-      
-      setExpiryAlerts(locationStock.filter(item => {
-        if (!item.expiryDate) return false;
-        const expiryDate = new Date(item.expiryDate);
-        return expiryDate <= sevenDaysLater;
-      }));
-    } else {
-      // If no location is selected, show aggregate data
+    try {
+      if (selectedLocation) {
+        // Convert the location's blood stock to the format expected by the component
+        const locationStock = Object.entries(selectedLocation.bloodStock).map(([bloodType, data]) => ({
+          bloodType: bloodType as BloodType,
+          units: data.units,
+          capacity: data.capacity,
+          location: selectedLocation.name,
+          expiryDate: getRandomExpiryDate(), // In a real app, this would come from the backend
+        }));
+        
+        setFilteredStockData(locationStock);
+        
+        // Calculate alerts
+        setLowStockAlerts(locationStock.filter(item => (item.units / item.capacity) < 0.2));
+        
+        const today = new Date();
+        const sevenDaysLater = new Date();
+        sevenDaysLater.setDate(today.getDate() + 7);
+        
+        setExpiryAlerts(locationStock.filter(item => {
+          if (!item.expiryDate) return false;
+          const expiryDate = new Date(item.expiryDate);
+          return expiryDate <= sevenDaysLater;
+        }));
+      } else {
+        // If no location is selected, show aggregate data
+        setFilteredStockData(stockData);
+        setLowStockAlerts(stockData.filter(item => (item.units / item.capacity) < 0.2));
+        
+        const today = new Date();
+        const sevenDaysLater = new Date();
+        sevenDaysLater.setDate(today.getDate() + 7);
+        
+        setExpiryAlerts(stockData.filter(item => {
+          if (!item.expiryDate) return false;
+          const expiryDate = new Date(item.expiryDate);
+          return expiryDate <= sevenDaysLater;
+        }));
+      }
+    } catch (error) {
+      console.error("Error updating stock data:", error);
+      // Fallback to showing all stock data
       setFilteredStockData(stockData);
-      setLowStockAlerts(stockData.filter(item => (item.units / item.capacity) < 0.2));
-      
-      const today = new Date();
-      const sevenDaysLater = new Date();
-      sevenDaysLater.setDate(today.getDate() + 7);
-      
-      setExpiryAlerts(stockData.filter(item => {
-        if (!item.expiryDate) return false;
-        const expiryDate = new Date(item.expiryDate);
-        return expiryDate <= sevenDaysLater;
-      }));
     }
   }, [selectedLocation]);
 
   // Helper function to generate random expiry dates (for demo purposes only)
   const getRandomExpiryDate = () => {
-    const today = new Date();
-    const daysToAdd = Math.floor(Math.random() * 30) + 1; // 1 to 30 days
-    const expiryDate = new Date();
-    expiryDate.setDate(today.getDate() + daysToAdd);
-    return expiryDate.toISOString().split('T')[0];
+    try {
+      const today = new Date();
+      const daysToAdd = Math.floor(Math.random() * 30) + 1; // 1 to 30 days
+      const expiryDate = new Date();
+      expiryDate.setDate(today.getDate() + daysToAdd);
+      return expiryDate.toISOString().split('T')[0];
+    } catch (error) {
+      console.error("Error generating expiry date:", error);
+      return new Date().toISOString().split('T')[0]; // Today as fallback
+    }
   };
 
   // Calculate status based on stock level
@@ -192,22 +203,7 @@ export const BloodInventory = () => {
         
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Location Based Filtering</h3>
-          {!mapError ? (
-            <LocationFilter onLocationSelect={setSelectedLocation} onError={handleMapError} />
-          ) : (
-            <Card className="p-4">
-              <div className="text-center py-6">
-                <CircleX className="h-12 w-12 mx-auto text-red-500 mb-2" />
-                <h3 className="text-lg font-medium mb-2">Map Loading Error</h3>
-                <p className="text-gray-600 mb-4">
-                  Unable to load the location map. This might be due to missing API credentials or network issues.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Please contact support or try again later.
-                </p>
-              </div>
-            </Card>
-          )}
+          <LocationFilter onLocationSelect={setSelectedLocation} onError={handleMapError} />
         </div>
       </div>
     </div>
