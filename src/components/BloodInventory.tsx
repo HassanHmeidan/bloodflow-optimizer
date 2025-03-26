@@ -4,6 +4,7 @@ import { CircleX, CircleCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { LocationFilter } from './LocationFilter';
+import { toast } from '@/components/ui/use-toast';
 
 // Define the type for blood stock data
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
@@ -47,6 +48,18 @@ export const BloodInventory = () => {
   const [filteredStockData, setFilteredStockData] = useState<BloodStockData[]>(stockData);
   const [lowStockAlerts, setLowStockAlerts] = useState<BloodStockData[]>([]);
   const [expiryAlerts, setExpiryAlerts] = useState<BloodStockData[]>([]);
+  const [mapError, setMapError] = useState<boolean>(false);
+
+  // Handle map errors
+  const handleMapError = (error: Error) => {
+    console.error("Map loading error:", error);
+    setMapError(true);
+    toast({
+      title: "Map Loading Error",
+      description: "Could not load location map. Please check your connection or contact support.",
+      variant: "destructive"
+    });
+  };
 
   // Update filtered stock data when a location is selected
   useEffect(() => {
@@ -179,7 +192,22 @@ export const BloodInventory = () => {
         
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Location Based Filtering</h3>
-          <LocationFilter onLocationSelect={setSelectedLocation} />
+          {!mapError ? (
+            <LocationFilter onLocationSelect={setSelectedLocation} onError={handleMapError} />
+          ) : (
+            <Card className="p-4">
+              <div className="text-center py-6">
+                <CircleX className="h-12 w-12 mx-auto text-red-500 mb-2" />
+                <h3 className="text-lg font-medium mb-2">Map Loading Error</h3>
+                <p className="text-gray-600 mb-4">
+                  Unable to load the location map. This might be due to missing API credentials or network issues.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Please contact support or try again later.
+                </p>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

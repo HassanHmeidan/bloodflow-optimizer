@@ -1,15 +1,18 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { Search, MapPin } from 'lucide-react';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Map } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Set your Mapbox token here - ideally this would be stored in environment variables
-mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZXVzZXIiLCJhIjoiY2xxMzlnb3N5MGU0ZDJpcGh3ZTk1dXJmMiJ9.OLkptaH5p8AS6yAg_CbIuQ';
+// Define the props interface for the LocationFilter component
+interface LocationFilterProps {
+  onLocationSelect: (location: LocationData | null) => void;
+  onError?: (error: Error) => void;
+}
 
+// Define the type for location data
 interface LocationData {
   id: string;
   name: string;
@@ -24,261 +27,219 @@ interface LocationData {
   };
 }
 
-// Sample location data - in a real app, this would come from your backend
-const sampleLocations: LocationData[] = [
+// Mock data for locations
+const mockLocations: LocationData[] = [
   {
-    id: '1',
-    name: 'General Hospital',
-    type: 'Hospital',
-    coordinates: [-73.9665, 40.7812], // NYC coordinates
-    address: '1000 Fifth Avenue, New York, NY',
+    id: "1",
+    name: "City General Hospital",
+    type: "Hospital",
+    coordinates: [-122.4194, 37.7749],
+    address: "123 Main St, San Francisco, CA",
     bloodStock: {
-      'A+': { units: 45, capacity: 100 },
-      'A-': { units: 12, capacity: 50 },
-      'B+': { units: 30, capacity: 100 },
-      'B-': { units: 8, capacity: 50 },
-      'AB+': { units: 15, capacity: 50 },
-      'AB-': { units: 5, capacity: 25 },
-      'O+': { units: 55, capacity: 150 },
-      'O-': { units: 22, capacity: 100 },
+      "A+": { units: 120, capacity: 200 },
+      "O-": { units: 50, capacity: 100 },
+      "B+": { units: 80, capacity: 150 },
     }
   },
   {
-    id: '2',
-    name: 'City Blood Bank',
-    type: 'Blood Bank',
-    coordinates: [-73.9712, 40.7831], // Nearby
-    address: '500 Madison Avenue, New York, NY',
+    id: "2",
+    name: "Central Blood Bank",
+    type: "Blood Bank",
+    coordinates: [-122.4099, 37.7890],
+    address: "456 Market St, San Francisco, CA",
     bloodStock: {
-      'A+': { units: 85, capacity: 200 },
-      'A-': { units: 32, capacity: 100 },
-      'B+': { units: 65, capacity: 200 },
-      'B-': { units: 28, capacity: 100 },
-      'AB+': { units: 35, capacity: 100 },
-      'AB-': { units: 15, capacity: 50 },
-      'O+': { units: 135, capacity: 300 },
-      'O-': { units: 62, capacity: 150 },
+      "A+": { units: 200, capacity: 300 },
+      "A-": { units: 100, capacity: 150 },
+      "B+": { units: 150, capacity: 200 },
+      "B-": { units: 75, capacity: 120 },
+      "AB+": { units: 50, capacity: 100 },
+      "AB-": { units: 25, capacity: 50 },
+      "O+": { units: 250, capacity: 400 },
+      "O-": { units: 125, capacity: 200 },
     }
   },
   {
-    id: '3',
-    name: 'Downtown Medical Center',
-    type: 'Hospital',
-    coordinates: [-74.0060, 40.7128], // Downtown
-    address: '100 Broadway, New York, NY',
+    id: "3",
+    name: "Regional Storage Facility",
+    type: "Storage",
+    coordinates: [-122.3977, 37.7790],
+    address: "789 Howard St, San Francisco, CA",
     bloodStock: {
-      'A+': { units: 25, capacity: 80 },
-      'A-': { units: 7, capacity: 40 },
-      'B+': { units: 18, capacity: 80 },
-      'B-': { units: 3, capacity: 40 },
-      'AB+': { units: 9, capacity: 40 },
-      'AB-': { units: 2, capacity: 20 },
-      'O+': { units: 30, capacity: 100 },
-      'O-': { units: 11, capacity: 60 },
+      "A+": { units: 300, capacity: 600 },
+      "O+": { units: 400, capacity: 800 },
+      "O-": { units: 150, capacity: 500 },
     }
   },
   {
-    id: '4',
-    name: 'Regional Storage Facility',
-    type: 'Storage',
-    coordinates: [-73.8458, 40.6915], // Queens
-    address: '200 Queens Blvd, Queens, NY',
+    id: "4",
+    name: "East Side Medical Center",
+    type: "Hospital",
+    coordinates: [-122.3894, 37.7651],
+    address: "321 Valencia St, San Francisco, CA",
     bloodStock: {
-      'A+': { units: 150, capacity: 300 },
-      'A-': { units: 45, capacity: 150 },
-      'B+': { units: 120, capacity: 300 },
-      'B-': { units: 35, capacity: 150 },
-      'AB+': { units: 65, capacity: 150 },
-      'AB-': { units: 25, capacity: 75 },
-      'O+': { units: 180, capacity: 450 },
-      'O-': { units: 90, capacity: 225 },
+      "A+": { units: 80, capacity: 120 },
+      "B-": { units: 30, capacity: 60 },
+      "O+": { units: 90, capacity: 150 },
+    }
+  },
+  {
+    id: "5",
+    name: "Bay Area Donor Center",
+    type: "Blood Bank",
+    coordinates: [-122.4064, 37.8014],
+    address: "555 Van Ness Ave, San Francisco, CA",
+    bloodStock: {
+      "A+": { units: 180, capacity: 250 },
+      "A-": { units: 90, capacity: 120 },
+      "AB+": { units: 40, capacity: 80 },
+      "O+": { units: 200, capacity: 350 },
     }
   }
 ];
 
-interface LocationFilterProps {
-  onLocationSelect: (location: LocationData | null) => void;
-}
-
-export const LocationFilter = ({ onLocationSelect }: LocationFilterProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [map, setMap] = useState<mapboxgl.Map | null>(null);
-  const [markers, setMarkers] = useState<mapboxgl.Marker[]>([]);
+export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect, onError }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [filteredLocations, setFilteredLocations] = useState<LocationData[]>(mockLocations);
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
-  const [filteredLocations, setFilteredLocations] = useState<LocationData[]>(sampleLocations);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Initialize map
+  // Filter locations based on search query and selected type
   useEffect(() => {
-    const mapInstance = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [-73.9712, 40.7831], // Default center (NYC)
-      zoom: 11
-    });
+    let results = mockLocations;
 
-    mapInstance.on('load', () => {
-      mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      setMap(mapInstance);
-    });
-
-    return () => {
-      mapInstance.remove();
-    };
-  }, []);
-
-  // Filter locations based on search query and type
-  useEffect(() => {
-    let filtered = sampleLocations;
-    
+    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(location => 
-        location.name.toLowerCase().includes(query) || 
-        location.address.toLowerCase().includes(query)
+      results = results.filter(
+        location => location.name.toLowerCase().includes(query) || 
+                    location.address.toLowerCase().includes(query)
       );
     }
-    
+
+    // Filter by location type
     if (selectedType) {
-      filtered = filtered.filter(location => location.type === selectedType);
+      results = results.filter(location => location.type === selectedType);
     }
-    
-    setFilteredLocations(filtered);
+
+    setFilteredLocations(results);
   }, [searchQuery, selectedType]);
 
-  // Update markers when filtered locations change
-  useEffect(() => {
-    if (!map) return;
-    
-    // Clear existing markers
-    markers.forEach(marker => marker.remove());
-    
-    // Add new markers
-    const newMarkers = filteredLocations.map(location => {
-      const el = document.createElement('div');
-      el.className = 'marker';
-      el.style.backgroundColor = selectedLocation?.id === location.id ? '#ff4646' : '#3b82f6';
-      el.style.width = '25px';
-      el.style.height = '25px';
-      el.style.borderRadius = '50%';
-      el.style.cursor = 'pointer';
-      el.style.border = '2px solid white';
-      
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat(location.coordinates)
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<h3>${location.name}</h3><p>${location.type}</p>`
-        ))
-        .addTo(map);
-      
-      marker.getElement().addEventListener('click', () => {
-        handleLocationSelect(location);
-      });
-      
-      return marker;
-    });
-    
-    setMarkers(newMarkers);
-    
-    // Fit map to markers if we have any
-    if (filteredLocations.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds();
-      filteredLocations.forEach(location => {
-        bounds.extend(location.coordinates);
-      });
-      
-      map.fitBounds(bounds, {
-        padding: 50,
-        maxZoom: 14
-      });
-    }
-  }, [filteredLocations, map, selectedLocation]);
-
-  const handleLocationSelect = useCallback((location: LocationData) => {
+  // Handle location selection
+  const handleSelectLocation = (location: LocationData) => {
     setSelectedLocation(location);
     onLocationSelect(location);
-  }, [onLocationSelect]);
+  };
 
-  const clearSelection = useCallback(() => {
-    setSelectedLocation(null);
-    onLocationSelect(null);
-  }, [onLocationSelect]);
+  // Simulate loading a map with a delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        // Simulate map loading success for demo purposes
+        setMapLoaded(true);
+      } catch (error) {
+        if (onError && error instanceof Error) {
+          onError(error);
+        }
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [onError]);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col space-y-4">
-        <h3 className="text-lg font-semibold">Location Filter</h3>
-        
+      <div className="flex flex-col space-y-2">
         <div className="relative">
           <Input
             type="text"
-            placeholder="Search by location name or address..."
-            className="pr-10"
+            placeholder="Search by name or address..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
           />
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
         
-        <Select value={selectedType} onValueChange={setSelectedType}>
+        <Select onValueChange={(value) => setSelectedType(value === "all" ? null : value)}>
           <SelectTrigger>
-            <SelectValue placeholder="Filter by location type" />
+            <SelectValue placeholder="Filter by type..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Types</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="Hospital">Hospital</SelectItem>
             <SelectItem value="Blood Bank">Blood Bank</SelectItem>
             <SelectItem value="Storage">Storage</SelectItem>
           </SelectContent>
         </Select>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <div id="map" className="h-[400px] rounded-md border border-gray-200"></div>
-        </div>
-        
-        <div className="space-y-4">
-          <h4 className="font-medium">Available Locations ({filteredLocations.length})</h4>
-          
-          <div className="space-y-2 max-h-[360px] overflow-y-auto">
-            {filteredLocations.length > 0 ? (
-              filteredLocations.map((location) => (
-                <div 
-                  key={location.id} 
-                  className={`p-3 rounded-md border cursor-pointer transition-colors ${
-                    selectedLocation?.id === location.id
-                      ? 'bg-bloodRed-50 border-bloodRed-300'
-                      : 'hover:bg-gray-50 border-gray-200'
-                  }`}
-                  onClick={() => handleLocationSelect(location)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h5 className="font-medium">{location.name}</h5>
-                      <p className="text-sm text-gray-500">{location.type}</p>
-                      <p className="text-xs text-gray-400 mt-1">{location.address}</p>
-                    </div>
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-gray-500 py-4">No locations found</p>
-            )}
+      
+      {/* Map Placeholder */}
+      <Card className="relative h-56 overflow-hidden bg-gray-100">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <Map className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500">
+              {mapLoaded ? "Map View Available" : "Loading map..."}
+            </p>
           </div>
-          
-          {selectedLocation && (
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              onClick={clearSelection}
-            >
-              Clear Selection
-            </Button>
-          )}
         </div>
+      </Card>
+      
+      {/* Locations list */}
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+        {filteredLocations.length > 0 ? (
+          filteredLocations.map((location) => (
+            <Card
+              key={location.id}
+              className={`p-3 cursor-pointer transition hover:bg-gray-50 ${
+                selectedLocation?.id === location.id ? 'bg-gray-50 border-primary' : ''
+              }`}
+              onClick={() => handleSelectLocation(location)}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-medium">{location.name}</h4>
+                  <p className="text-xs text-gray-500">{location.address}</p>
+                </div>
+                <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  {location.type}
+                </span>
+              </div>
+              
+              <div className="mt-2 text-xs text-gray-600">
+                <div className="flex gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-medium">
+                    {Object.keys(location.bloodStock).length} blood types
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-800 font-medium">
+                    {Object.values(location.bloodStock).reduce((sum, item) => sum + item.units, 0)} units total
+                  </span>
+                </div>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>No locations found matching your criteria</p>
+          </div>
+        )}
       </div>
+      
+      {selectedLocation && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedLocation(null);
+              onLocationSelect(null);
+            }}
+          >
+            Clear Selection
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
