@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -448,7 +449,10 @@ const Index = () => {
                   </Button>
                 </Link>
                 <Link to="/request">
-                  <Button variant="outline" className="border-white text-white hover:bg-bloodRed-700/50 font-medium px-6 py-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-white bg-transparent text-white hover:bg-white hover:text-bloodRed-700 font-medium px-6 py-2 transition-colors"
+                  >
                     Request Blood
                   </Button>
                 </Link>
