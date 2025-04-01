@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { CircleX, CircleCheck } from 'lucide-react';
+import { CircleX, CircleCheck, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { LocationFilter } from './LocationFilter';
@@ -31,6 +31,10 @@ interface LocationData {
   };
 }
 
+interface BloodInventoryProps {
+  simpleView?: boolean;
+}
+
 // This would typically come from a real data source
 const stockData: BloodStockData[] = [
   { bloodType: 'A+', units: 450, capacity: 1000, expiryDate: '2023-08-15' },
@@ -43,7 +47,7 @@ const stockData: BloodStockData[] = [
   { bloodType: 'O-', units: 200, capacity: 700, expiryDate: '2023-08-12' },
 ];
 
-export const BloodInventory = () => {
+export const BloodInventory = ({ simpleView = false }: BloodInventoryProps) => {
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [filteredStockData, setFilteredStockData] = useState<BloodStockData[]>(stockData);
   const [lowStockAlerts, setLowStockAlerts] = useState<BloodStockData[]>([]);
@@ -54,11 +58,13 @@ export const BloodInventory = () => {
   const handleMapError = (error: Error) => {
     console.error("Map loading error:", error);
     setMapError(true);
-    toast({
-      title: "Map Loading Error",
-      description: "Could not load location map. Using simplified location view instead.",
-      variant: "destructive"
-    });
+    if (!simpleView) {
+      toast({
+        title: "Map Loading Error",
+        description: "Could not load location map. Using simplified location view instead.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Update filtered stock data when a location is selected
@@ -76,31 +82,32 @@ export const BloodInventory = () => {
         
         setFilteredStockData(locationStock);
         
-        // Calculate alerts
-        setLowStockAlerts(locationStock.filter(item => (item.units / item.capacity) < 0.2));
+        // Calculate alerts - only when critical (below 15%)
+        setLowStockAlerts(locationStock.filter(item => (item.units / item.capacity) < 0.15));
         
+        // Only show items expiring in the next 3 days for critical alerts
         const today = new Date();
-        const sevenDaysLater = new Date();
-        sevenDaysLater.setDate(today.getDate() + 7);
+        const threeDaysLater = new Date();
+        threeDaysLater.setDate(today.getDate() + 3);
         
         setExpiryAlerts(locationStock.filter(item => {
           if (!item.expiryDate) return false;
           const expiryDate = new Date(item.expiryDate);
-          return expiryDate <= sevenDaysLater;
+          return expiryDate <= threeDaysLater;
         }));
       } else {
         // If no location is selected, show aggregate data
         setFilteredStockData(stockData);
-        setLowStockAlerts(stockData.filter(item => (item.units / item.capacity) < 0.2));
+        setLowStockAlerts(stockData.filter(item => (item.units / item.capacity) < 0.15));
         
         const today = new Date();
-        const sevenDaysLater = new Date();
-        sevenDaysLater.setDate(today.getDate() + 7);
+        const threeDaysLater = new Date();
+        threeDaysLater.setDate(today.getDate() + 3);
         
         setExpiryAlerts(stockData.filter(item => {
           if (!item.expiryDate) return false;
           const expiryDate = new Date(item.expiryDate);
-          return expiryDate <= sevenDaysLater;
+          return expiryDate <= threeDaysLater;
         }));
       }
     } catch (error) {
@@ -127,20 +134,61 @@ export const BloodInventory = () => {
   // Calculate status based on stock level
   const getStockStatus = (units: number, capacity: number) => {
     const percentage = (units / capacity) * 100;
-    if (percentage < 20) return { color: 'bg-red-500', status: 'Low' };
-    if (percentage < 50) return { color: 'bg-amber-500', status: 'Medium' };
-    return { color: 'bg-green-500', status: 'Good' };
+    if (percentage < 20) return { color: 'bg-red-500', status: 'Low', textColor: 'text-red-600' };
+    if (percentage < 50) return { color: 'bg-amber-500', status: 'Medium', textColor: 'text-amber-600' };
+    return { color: 'bg-green-500', status: 'Good', textColor: 'text-green-600' };
   };
 
+  // Simplified view for homepage
+  if (simpleView) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
+          {filteredStockData.map((item) => {
+            const stockStatus = getStockStatus(item.units, item.capacity);
+            const percentage = Math.round((item.units / item.capacity) * 100);
+            
+            return (
+              <Card key={item.bloodType} className="p-3 text-center hover:shadow-md transition-shadow">
+                <div className="inline-flex items-center justify-center bg-bloodRed-100 text-bloodRed-900 text-xl font-bold rounded-full w-10 h-10 mb-2">
+                  {item.bloodType}
+                </div>
+                <div className="text-xl font-bold">{item.units}</div>
+                <div className="text-xs text-gray-500 mb-2">units</div>
+                <Progress value={percentage} className={`h-1.5 ${stockStatus.color}`} />
+                <div className={`text-xs font-medium mt-1 ${stockStatus.textColor}`}>
+                  {stockStatus.status}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        
+        {/* Simplified critical alerts - only show if there are any */}
+        {(lowStockAlerts.length > 0 || expiryAlerts.length > 0) && (
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
+            <div className="text-sm">
+              <span className="font-medium">Critical Alerts: </span>
+              {lowStockAlerts.length > 0 && `${lowStockAlerts.length} blood types low on stock. `}
+              {expiryAlerts.length > 0 && `${expiryAlerts.length} blood types expiring soon.`}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Full view for dashboard
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {filteredStockData.map((item) => {
           const stockStatus = getStockStatus(item.units, item.capacity);
           const percentage = Math.round((item.units / item.capacity) * 100);
           
           return (
-            <Card key={item.bloodType} className="p-4 col-span-1 md:col-span-2 lg:col-span-1">
+            <Card key={item.bloodType} className="p-4 hover:shadow-md transition-shadow">
               <div className="text-center space-y-2">
                 <div className="inline-flex items-center justify-center bg-bloodRed-100 text-bloodRed-900 text-xl font-bold rounded-full w-12 h-12">
                   {item.bloodType}
@@ -150,11 +198,7 @@ export const BloodInventory = () => {
                 <Progress value={percentage} className={`h-2 ${stockStatus.color}`} />
                 <div className="flex justify-between text-xs">
                   <span>{percentage}%</span>
-                  <span className={`font-medium ${
-                    stockStatus.status === 'Low' ? 'text-red-600' : 
-                    stockStatus.status === 'Medium' ? 'text-amber-600' : 
-                    'text-green-600'
-                  }`}>
+                  <span className={`font-medium ${stockStatus.textColor}`}>
                     {stockStatus.status}
                   </span>
                 </div>
@@ -171,7 +215,7 @@ export const BloodInventory = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Low Stock & Expiry Alerts</h3>
+          <h3 className="text-lg font-semibold">Critical Stock Alerts</h3>
           <div className="space-y-2">
             {lowStockAlerts.length > 0 || expiryAlerts.length > 0 ? (
               <>
@@ -179,7 +223,7 @@ export const BloodInventory = () => {
                   <div key={`low-${item.bloodType}-${index}`} className="flex items-center space-x-3 p-3 bg-red-50 border border-red-100 rounded-md">
                     <CircleX className="h-5 w-5 text-red-500" />
                     <div>
-                      <span className="font-medium">Low Stock Alert:</span> {item.bloodType} - Only {item.units} units available
+                      <span className="font-medium">Critical Stock Alert:</span> {item.bloodType} - Only {item.units} units available ({Math.round((item.units / item.capacity) * 100)}%)
                       {item.location && <span className="text-sm text-gray-500 ml-2">at {item.location}</span>}
                     </div>
                   </div>
@@ -189,14 +233,14 @@ export const BloodInventory = () => {
                   <div key={`expiry-${item.bloodType}-${index}`} className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-100 rounded-md">
                     <CircleCheck className="h-5 w-5 text-amber-500" />
                     <div>
-                      <span className="font-medium">Expiry Alert:</span> {item.bloodType} - Expires on {item.expiryDate}
+                      <span className="font-medium">Expiring Soon:</span> {item.bloodType} - Expires on {item.expiryDate}
                       {item.location && <span className="text-sm text-gray-500 ml-2">at {item.location}</span>}
                     </div>
                   </div>
                 ))}
               </>
             ) : (
-              <p className="text-center text-gray-500 py-4">No alerts at this time</p>
+              <p className="text-center text-gray-500 py-4">No critical alerts at this time</p>
             )}
           </div>
         </div>
