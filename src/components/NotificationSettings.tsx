@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -6,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon, AlertCircle } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences, sendEmailNotification } from '@/lib/notifications';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export const NotificationSettings = () => {
   const [email, setEmail] = useState('');
@@ -21,18 +21,15 @@ export const NotificationSettings = () => {
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
 
-  // Load user data and preferences
   useEffect(() => {
     const userId = localStorage.getItem('authToken');
     if (!userId) return;
     
-    // Load user contact info
     const userEmail = localStorage.getItem('userEmail') || '';
     const userPhone = localStorage.getItem('userPhone') || '';
     setEmail(userEmail);
     setPhone(userPhone);
     
-    // Load notification preferences
     const userPreferences = getNotificationPreferences(userId);
     setPreferences(userPreferences);
   }, []);
@@ -46,25 +43,21 @@ export const NotificationSettings = () => {
     
     setLoading(true);
     
-    // Validate email if email notifications are enabled
     if (preferences.email && (!email || !email.includes('@'))) {
       toast.error("Please enter a valid email address");
       setLoading(false);
       return;
     }
     
-    // Validate phone if SMS notifications are enabled
     if (preferences.sms && (!phone || phone.length < 10)) {
       toast.error("Please enter a valid phone number");
       setLoading(false);
       return;
     }
 
-    // Save contact information
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userPhone', phone);
     
-    // Save notification preferences
     saveNotificationPreferences(userId, preferences);
     
     setTimeout(() => {
@@ -94,6 +87,11 @@ export const NotificationSettings = () => {
           message: "This is a test notification from the Blood Donation System. Your notification settings are working correctly!",
           event: 'donation'
         });
+        
+        toast.info("Simulation Complete", {
+          description: "In this demo, emails are simulated and not actually sent to real addresses. In a production environment, this would connect to a real email service.",
+          duration: 5000
+        });
       } else {
         toast.info("Email notifications are disabled in your preferences", {
           description: "Enable email notifications first to test them."
@@ -119,6 +117,14 @@ export const NotificationSettings = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <Alert variant="info" className="bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertTitle>Demo Mode</AlertTitle>
+          <AlertDescription>
+            This is a demo application. Email notifications are simulated and not actually sent to real email addresses.
+          </AlertDescription>
+        </Alert>
+
         <div className="space-y-4">
           <h3 className="text-sm font-medium">Contact Information</h3>
           <div className="grid gap-3">
@@ -271,7 +277,7 @@ export const NotificationSettings = () => {
           ) : (
             <>
               <Mail className="h-4 w-4 mr-2" />
-              Test Notification
+              Test Notification (Simulated)
             </>
           )}
         </Button>
