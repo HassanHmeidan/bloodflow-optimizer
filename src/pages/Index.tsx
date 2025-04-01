@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -61,7 +60,6 @@ const Index = () => {
     { id: 3, hospital: 'Community Medical', bloodType: 'B-', units: 2, urgency: 'Low', status: 'Needed' },
   ];
 
-  // Search functionality
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       setFilteredLatestDonations([]);
@@ -71,14 +69,12 @@ const Index = () => {
 
     const query = searchQuery.toLowerCase();
     
-    // Filter donations
     const donations = latestDonations.filter(
       donation => 
         donation.donor.toLowerCase().includes(query) || 
         donation.bloodType.toLowerCase().includes(query)
     );
     
-    // Filter requests
     const requests = pendingRequests.filter(
       request => 
         request.hospital.toLowerCase().includes(query) || 
@@ -103,7 +99,6 @@ const Index = () => {
     }
   };
 
-  // Handle button clicks
   const handleButtonClick = (action) => {
     switch (action) {
       case 'registerDonor':
@@ -143,7 +138,6 @@ const Index = () => {
     }
   };
 
-  // Toggle for authenticated users or admin to see tables
   const toggleTables = () => {
     setShowAllTables(!showAllTables);
   };
@@ -219,7 +213,7 @@ const Index = () => {
                   <motion.div variants={itemVariants}>
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start border-white/20 text-white hover:bg-white/10"
+                      className="w-full justify-start border-white/20 bg-transparent text-white hover:bg-white/10"
                       onClick={() => handleButtonClick('viewInventory')}
                     >
                       <BarChart3 className="mr-2 h-4 w-4" />
@@ -229,7 +223,7 @@ const Index = () => {
                   <motion.div variants={itemVariants}>
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start border-white/20 text-white hover:bg-white/10"
+                      className="w-full justify-start border-white/20 bg-transparent text-white hover:bg-white/10"
                       onClick={() => handleButtonClick('donationHistory')}
                     >
                       <Activity className="mr-2 h-4 w-4" />
@@ -242,7 +236,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Search Results */}
         {(filteredLatestDonations.length > 0 || filteredPendingRequests.length > 0) && (
           <section className="py-6 bg-white border-b">
             <div className="container mx-auto px-4">
@@ -340,7 +333,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Only show tables for authenticated users or admin */}
         <div className="container mx-auto px-4 py-4 flex justify-center">
           <Button 
             variant="ghost" 
@@ -456,7 +448,7 @@ const Index = () => {
                   </Button>
                 </Link>
                 <Link to="/request">
-                  <Button variant="outline" className="border-white/30 text-white hover:bg-bloodRed-700/50 font-medium px-6 py-2">
+                  <Button variant="outline" className="border-white text-white hover:bg-bloodRed-700/50 font-medium px-6 py-2">
                     Request Blood
                   </Button>
                 </Link>
