@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -5,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet } from "lucide-react";
-import { getNotificationPreferences, saveNotificationPreferences } from '@/lib/notifications';
+import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon } from "lucide-react";
+import { getNotificationPreferences, saveNotificationPreferences, sendEmailNotification } from '@/lib/notifications';
 
 export const NotificationSettings = () => {
   const [email, setEmail] = useState('');
@@ -18,6 +19,7 @@ export const NotificationSettings = () => {
     bulkNotifications: true
   });
   const [loading, setLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
 
   // Load user data and preferences
   useEffect(() => {
@@ -68,6 +70,41 @@ export const NotificationSettings = () => {
     setTimeout(() => {
       setLoading(false);
     }, 800);
+  };
+
+  const handleTestNotification = async () => {
+    const userId = localStorage.getItem('authToken');
+    if (!userId) {
+      toast.error("You must be logged in to test notifications");
+      return;
+    }
+
+    if (preferences.email && (!email || !email.includes('@'))) {
+      toast.error("Please enter a valid email address to test email notifications");
+      return;
+    }
+    
+    setTestLoading(true);
+    
+    try {
+      if (preferences.email) {
+        await sendEmailNotification({
+          recipient: email,
+          subject: "Test Notification",
+          message: "This is a test notification from the Blood Donation System. Your notification settings are working correctly!",
+          event: 'donation'
+        });
+      } else {
+        toast.info("Email notifications are disabled in your preferences", {
+          description: "Enable email notifications first to test them."
+        });
+      }
+    } catch (error) {
+      console.error("Error sending test notification:", error);
+      toast.error("Failed to send test notification");
+    } finally {
+      setTestLoading(false);
+    }
   };
 
   return (
@@ -202,7 +239,7 @@ export const NotificationSettings = () => {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
         <Button 
           className="w-full"
           onClick={handleSaveNotifications}
@@ -217,6 +254,24 @@ export const NotificationSettings = () => {
             <>
               <Save className="h-4 w-4 mr-2" />
               Save Notification Preferences
+            </>
+          )}
+        </Button>
+        <Button 
+          variant="secondary"
+          className="w-full"
+          onClick={handleTestNotification}
+          disabled={testLoading}
+        >
+          {testLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            <>
+              <Mail className="h-4 w-4 mr-2" />
+              Test Notification
             </>
           )}
         </Button>
