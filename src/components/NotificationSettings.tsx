@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -5,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon, AlertCircle } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences, sendEmailNotification } from '@/lib/notifications';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -20,6 +21,11 @@ export const NotificationSettings = () => {
   });
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
+  const [useRealEmail, setUseRealEmail] = useState(false);
+  const [emailServiceUrl, setEmailServiceUrl] = useState('');
+  const [emailApiKey, setEmailApiKey] = useState('');
+  const [emailSender, setEmailSender] = useState('');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('authToken');
@@ -32,6 +38,12 @@ export const NotificationSettings = () => {
     
     const userPreferences = getNotificationPreferences(userId);
     setPreferences(userPreferences);
+    
+    // Load email service configuration
+    setUseRealEmail(localStorage.getItem('useRealEmailService') === 'true');
+    setEmailServiceUrl(localStorage.getItem('emailServiceUrl') || '');
+    setEmailApiKey(localStorage.getItem('emailApiKey') || '');
+    setEmailSender(localStorage.getItem('emailSender') || '');
   }, []);
 
   const handleSaveNotifications = () => {
@@ -55,9 +67,25 @@ export const NotificationSettings = () => {
       return;
     }
 
+    // Save user contact info
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userPhone', phone);
     
+    // Save email service configuration if using real email
+    localStorage.setItem('useRealEmailService', useRealEmail.toString());
+    if (useRealEmail) {
+      if (!emailServiceUrl) {
+        toast.error("Please enter an email service URL");
+        setLoading(false);
+        return;
+      }
+      
+      localStorage.setItem('emailServiceUrl', emailServiceUrl);
+      localStorage.setItem('emailApiKey', emailApiKey);
+      localStorage.setItem('emailSender', emailSender || 'noreply@blooddonation.com');
+    }
+    
+    // Save notification preferences
     saveNotificationPreferences(userId, preferences);
     
     setTimeout(() => {
@@ -88,10 +116,12 @@ export const NotificationSettings = () => {
           event: 'donation'
         });
         
-        toast.info("Simulation Complete", {
-          description: "In this demo, emails are simulated and not actually sent to real addresses. In a production environment, this would connect to a real email service.",
-          duration: 5000
-        });
+        if (!useRealEmail) {
+          toast.info("Simulation Complete", {
+            description: "In this demo, emails are simulated and not actually sent to real addresses. To send real emails, enable real email service in the advanced settings.",
+            duration: 5000
+          });
+        }
       } else {
         toast.info("Email notifications are disabled in your preferences", {
           description: "Enable email notifications first to test them."
@@ -121,7 +151,10 @@ export const NotificationSettings = () => {
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertTitle>Demo Mode</AlertTitle>
           <AlertDescription>
-            This is a demo application. Email notifications are simulated and not actually sent to real email addresses.
+            {useRealEmail 
+              ? "You have enabled real email sending. Make sure you've configured your email service properly."
+              : "This is a demo application. Email notifications are simulated and not actually sent to real email addresses unless you enable real email service in advanced settings."
+            }
           </AlertDescription>
         </Alert>
 
@@ -212,6 +245,91 @@ export const NotificationSettings = () => {
           </div>
         </div>
 
+        <div>
+          <Button 
+            variant="ghost" 
+            className="flex items-center justify-between w-full p-2 text-left"
+            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          >
+            <span className="flex items-center font-medium">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Advanced Email Settings
+            </span>
+            {showAdvancedOptions ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+          
+          {showAdvancedOptions && (
+            <div className="mt-4 p-4 border rounded-md space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">Enable Real Email Service</h4>
+                  <p className="text-sm text-gray-500">
+                    Switch from simulation to actual email delivery
+                  </p>
+                </div>
+                <Switch
+                  checked={useRealEmail}
+                  onCheckedChange={setUseRealEmail}
+                />
+              </div>
+              
+              {useRealEmail && (
+                <div className="space-y-3 mt-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="email-service">Email Service URL</Label>
+                    <Input
+                      id="email-service"
+                      type="url"
+                      placeholder="https://api.youremailservice.com/send"
+                      value={emailServiceUrl}
+                      onChange={(e) => setEmailServiceUrl(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-500">
+                      The API endpoint of your email service provider (e.g., SendGrid, Mailgun)
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="api-key">API Key</Label>
+                    <Input
+                      id="api-key"
+                      type="password"
+                      placeholder="Your API key"
+                      value={emailApiKey}
+                      onChange={(e) => setEmailApiKey(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="sender-email">Sender Email</Label>
+                    <Input
+                      id="sender-email"
+                      type="email"
+                      placeholder="noreply@yourcompany.com"
+                      value={emailSender}
+                      onChange={(e) => setEmailSender(e.target.value)}
+                    />
+                  </div>
+                  
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Security Warning</AlertTitle>
+                    <AlertDescription>
+                      API keys stored in the browser are not secure. For a production application, 
+                      these should be stored on a secure server. This implementation is for 
+                      demonstration purposes only.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-4">
           <h3 className="text-sm font-medium">Notification Types</h3>
           <div className="space-y-3">
@@ -277,7 +395,7 @@ export const NotificationSettings = () => {
           ) : (
             <>
               <Mail className="h-4 w-4 mr-2" />
-              Test Notification (Simulated)
+              {useRealEmail ? "Test Notification (Real)" : "Test Notification (Simulated)"}
             </>
           )}
         </Button>

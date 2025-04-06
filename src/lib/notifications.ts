@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
@@ -26,6 +27,46 @@ const isValidEmail = (email: string): boolean => {
   return regex.test(email);
 };
 
+// Real email sending implementation
+const sendRealEmail = async (to: string, subject: string, body: string): Promise<boolean> => {
+  try {
+    // Replace this URL with your email service endpoint
+    const emailServiceUrl = localStorage.getItem('emailServiceUrl');
+    const emailApiKey = localStorage.getItem('emailApiKey');
+
+    if (!emailServiceUrl || !emailApiKey) {
+      console.error("Email service URL or API key not configured");
+      return false;
+    }
+
+    // Make API call to the email service
+    const response = await fetch(emailServiceUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${emailApiKey}`
+      },
+      body: JSON.stringify({
+        to,
+        subject,
+        body,
+        from: localStorage.getItem('emailSender') || 'noreply@blooddonation.com'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Email service returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Email sent successfully:", data);
+    return true;
+  } catch (error) {
+    console.error("Error sending real email:", error);
+    return false;
+  }
+};
+
 // In a real app, this would connect to an email service like SendGrid or Mailchimp
 export const sendEmailNotification = async (data: NotificationData): Promise<boolean> => {
   console.log(`Sending email notification to ${data.recipient}`);
@@ -42,13 +83,36 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
   }
   
   try {
-    // In a real app, this would be an API call to your email service
-    // await emailService.send({ to, subject, body });
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-    
-    toast.success("Email notification sent", {
-      description: `Email sent to ${data.recipient}`
-    });
+    // Check if we should use real email sending
+    const useRealEmailService = localStorage.getItem('useRealEmailService') === 'true';
+    let success = false;
+
+    if (useRealEmailService) {
+      // Send real email
+      success = await sendRealEmail(
+        data.recipient, 
+        data.subject || `Notification: ${data.event}`, 
+        data.message
+      );
+      
+      if (success) {
+        toast.success("Email notification sent", {
+          description: `Email sent to ${data.recipient}`
+        });
+      } else {
+        toast.error("Failed to send email notification", {
+          description: "Email service error. Please check your configuration."
+        });
+      }
+    } else {
+      // Simulate email sending
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      success = true;
+      
+      toast.success("Email notification sent", {
+        description: `[SIMULATED] Email sent to ${data.recipient}`
+      });
+    }
     
     // Save notification history to localStorage for demo purposes
     const notificationHistory = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
@@ -56,11 +120,12 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
       ...data,
       timestamp: new Date().toISOString(),
       type: 'email',
-      status: 'sent'
+      status: success ? 'sent' : 'failed',
+      mode: useRealEmailService ? 'real' : 'simulated'
     });
     localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory));
     
-    return true;
+    return success;
   } catch (error) {
     console.error("Error sending email notification:", error);
     toast.error("Failed to send email notification", {
