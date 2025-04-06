@@ -117,7 +117,7 @@ export const NotificationSettings = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert variant="info" className="bg-blue-50 border-blue-200">
+        <Alert variant="default" className="bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertTitle>Demo Mode</AlertTitle>
           <AlertDescription>
