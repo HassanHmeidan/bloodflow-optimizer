@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 
 interface LocationFilterProps {
   onLocationSelect: (location: LocationData | null) => void;
@@ -39,6 +39,7 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
     const fetchLocations = async () => {
       setLoading(true);
       try {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
           .from('donation_centers')
           .select('*');
