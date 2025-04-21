@@ -14,6 +14,13 @@ export function useSupabase() {
   } | null>(null);
 
   useEffect(() => {
+    // Check if Supabase client is available
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      setLoading(false);
+      return;
+    }
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -61,6 +68,8 @@ export function useSupabase() {
 
   const signIn = async (email: string, password: string) => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -76,6 +85,8 @@ export function useSupabase() {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
+      
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -116,6 +127,8 @@ export function useSupabase() {
 
   const signOut = async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       toast.success('Successfully signed out!');
@@ -130,6 +143,7 @@ export function useSupabase() {
     phone?: string;
   }) => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       if (!user) {
         throw new Error('No user logged in');
       }
