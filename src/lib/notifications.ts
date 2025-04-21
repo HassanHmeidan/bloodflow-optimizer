@@ -1,5 +1,6 @@
 
 import { toast } from "sonner";
+import { supabase } from "./supabase";
 
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 type NotificationType = 'email' | 'sms' | 'app';
@@ -27,38 +28,34 @@ const isValidEmail = (email: string): boolean => {
   return regex.test(email);
 };
 
-// Real email sending implementation
+// Real email sending implementation 
 const sendRealEmail = async (to: string, subject: string, body: string): Promise<boolean> => {
   try {
-    // Replace this URL with your email service endpoint
-    const emailServiceUrl = localStorage.getItem('emailServiceUrl');
-    const emailApiKey = localStorage.getItem('emailApiKey');
-
-    if (!emailServiceUrl || !emailApiKey) {
-      console.error("Email service URL or API key not configured");
+    // Get email configuration from Supabase
+    const { data: config, error: configError } = await supabase
+      .from('email_configuration')
+      .select('*')
+      .single();
+    
+    if (configError || !config) {
+      console.error("Email configuration not found:", configError);
       return false;
     }
 
-    // Make API call to the email service
-    const response = await fetch(emailServiceUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${emailApiKey}`
-      },
-      body: JSON.stringify({
+    // Call Supabase Edge Function to send email
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
         to,
         subject,
         body,
-        from: localStorage.getItem('emailSender') || 'noreply@blooddonation.com'
-      })
+        from: config.sender_email || 'noreply@blooddonation.com'
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`Email service returned ${response.status}`);
+    if (error) {
+      throw new Error(`Email service error: ${error.message}`);
     }
 
-    const data = await response.json();
     console.log("Email sent successfully:", data);
     return true;
   } catch (error) {
@@ -67,13 +64,13 @@ const sendRealEmail = async (to: string, subject: string, body: string): Promise
   }
 };
 
-// In a real app, this would connect to an email service like SendGrid or Mailchimp
+// Send email notification
 export const sendEmailNotification = async (data: NotificationData): Promise<boolean> => {
   console.log(`Sending email notification to ${data.recipient}`);
   console.log(`Subject: ${data.subject}`);
   console.log(`Message: ${data.message}`);
   
-  // Simulating API call to email service
+  // Validate email
   if (!isValidEmail(data.recipient)) {
     console.error("Invalid email address:", data.recipient);
     toast.error("Failed to send email notification", {
@@ -83,12 +80,21 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
   }
   
   try {
-    // Check if we should use real email sending
-    const useRealEmailService = localStorage.getItem('useRealEmailService') === 'true';
+    // Get email sending configuration from Supabase
+    const { data: appSettings, error: settingsError } = await supabase
+      .from('app_settings')
+      .select('use_real_email_service')
+      .single();
+    
+    if (settingsError) {
+      console.error("Could not fetch app settings:", settingsError);
+    }
+    
+    const useRealEmailService = appSettings?.use_real_email_service || false;
     let success = false;
 
     if (useRealEmailService) {
-      // Send real email
+      // Send real email using Supabase Edge Function
       success = await sendRealEmail(
         data.recipient, 
         data.subject || `Notification: ${data.event}`, 
@@ -114,16 +120,25 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
       });
     }
     
-    // Save notification history to localStorage for demo purposes
-    const notificationHistory = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
-    notificationHistory.push({
-      ...data,
-      timestamp: new Date().toISOString(),
-      type: 'email',
+    // Save notification to Supabase
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      console.error("User not authenticated");
+      return success;
+    }
+    
+    await supabase.from('notifications').insert({
+      recipient_id: user.user.id,
+      subject: data.subject,
+      message: data.message,
+      event_type: data.event,
+      blood_type: data.bloodType,
+      units: data.units,
+      is_bulk: false,
       status: success ? 'sent' : 'failed',
-      mode: useRealEmailService ? 'real' : 'simulated'
+      sent_at: new Date().toISOString()
     });
-    localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory));
     
     return success;
   } catch (error) {
@@ -135,7 +150,7 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
   }
 };
 
-// Function to send bulk notifications instead of notifying each donor individually
+// Function to send bulk notifications
 export const sendBulkNotification = async (recipients: string[], subject: string, message: string, event: NotificationEvent, details?: { bloodType?: BloodType, units?: number }): Promise<boolean> => {
   if (recipients.length === 0) {
     console.log("No recipients provided for bulk notification");
@@ -143,35 +158,64 @@ export const sendBulkNotification = async (recipients: string[], subject: string
   }
   
   try {
-    // In a real app, this would call a bulk email service
-    // await emailService.sendBulk({ to: recipients, subject, body });
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    // Get email sending configuration
+    const { data: appSettings, error: settingsError } = await supabase
+      .from('app_settings')
+      .select('use_real_email_service')
+      .single();
+    
+    if (settingsError) {
+      console.error("Could not fetch app settings:", settingsError);
+    }
+    
+    const useRealEmailService = appSettings?.use_real_email_service || false;
+    
+    // For real emails, call the Supabase Edge Function for bulk sending
+    if (useRealEmailService) {
+      const { data, error } = await supabase.functions.invoke('send-bulk-email', {
+        body: {
+          recipients,
+          subject,
+          message,
+          event,
+          bloodType: details?.bloodType,
+          units: details?.units
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Bulk email service error: ${error.message}`);
+      }
+      
+      console.log("Bulk email response:", data);
+    } else {
+      // Simulate delay for demo
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
     
     toast.success("Bulk notification sent", {
       description: `Notification sent to ${recipients.length} recipients`
     });
     
-    // For demo purposes, log each recipient but only send one actual notification
-    console.log(`Bulk notification sent to ${recipients.length} recipients`);
-    console.log(`Recipients: ${recipients.join(', ')}`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Message: ${message}`);
-    
     // Save a single entry to notification history for the bulk send
-    const notificationHistory = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
-    notificationHistory.push({
-      recipient: `${recipients.length} recipients`,
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user.user) {
+      console.error("User not authenticated");
+      return true;
+    }
+    
+    await supabase.from('notifications').insert({
+      recipient_id: user.user.id,
       subject,
       message,
-      event,
-      bloodType: details?.bloodType,
+      event_type: event,
+      blood_type: details?.bloodType,
       units: details?.units,
-      timestamp: new Date().toISOString(),
-      type: 'email',
+      is_bulk: true,
       status: 'sent',
-      isBulk: true
+      sent_at: new Date().toISOString()
     });
-    localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory));
     
     return true;
   } catch (error) {
@@ -183,33 +227,79 @@ export const sendBulkNotification = async (recipients: string[], subject: string
   }
 };
 
-// Function to notify donors about low blood stock (updated to use bulk notification)
+// Function to notify donors about low blood stock
 export const notifyLowStockDonors = async (bloodType: BloodType, currentUnits: number, threshold: number): Promise<void> => {
-  // In a real app, you would fetch eligible donors from a database
-  const eligibleDonors = getMockEligibleDonors(bloodType);
-  
-  if (eligibleDonors.length === 0) {
-    console.log(`No eligible donors found for blood type ${bloodType}`);
-    return;
-  }
-  
-  const subject = `Urgent: ${bloodType} Blood Stock is Low`;
-  const message = `Our ${bloodType} blood supply is critically low with only ${currentUnits} units available. As someone with compatible blood type, your donation would be incredibly valuable right now. Please consider scheduling a donation appointment soon.`;
-  
-  // Extract just the email addresses
-  const recipientEmails = eligibleDonors.map(donor => donor.email);
-  
-  // Send as a single bulk notification instead of individual notifications
-  const success = await sendBulkNotification(
-    recipientEmails,
-    subject,
-    message,
-    'lowStock',
-    { bloodType, units: currentUnits }
-  );
-  
-  if (success) {
-    toast.success(`Notified ${eligibleDonors.length} eligible donors about low ${bloodType} stock`);
+  try {
+    // In a real app, fetch eligible donors from Supabase
+    const { data: eligibleDonors, error } = await supabase
+      .from('donor_profiles')
+      .select('user_id, blood_type')
+      .eq('eligible_to_donate', true);
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!eligibleDonors || eligibleDonors.length === 0) {
+      console.log(`No eligible donors found for blood type ${bloodType}`);
+      return;
+    }
+    
+    // Filter donors based on compatible blood types
+    const compatibleDonors = eligibleDonors.filter(donor => {
+      if (bloodType === 'O-') return donor.blood_type === 'O-';
+      if (bloodType === 'O+') return ['O+', 'O-'].includes(donor.blood_type as BloodType);
+      if (bloodType === 'A-') return ['A-', 'O-'].includes(donor.blood_type as BloodType);
+      if (bloodType === 'A+') return ['A+', 'A-', 'O+', 'O-'].includes(donor.blood_type as BloodType);
+      if (bloodType === 'B-') return ['B-', 'O-'].includes(donor.blood_type as BloodType);
+      if (bloodType === 'B+') return ['B+', 'B-', 'O+', 'O-'].includes(donor.blood_type as BloodType);
+      if (bloodType === 'AB-') return ['AB-', 'A-', 'B-', 'O-'].includes(donor.blood_type as BloodType);
+      return true; // AB+ can receive from anyone
+    });
+    
+    if (compatibleDonors.length === 0) {
+      console.log(`No compatible donors found for blood type ${bloodType}`);
+      return;
+    }
+    
+    // Get user emails for the compatible donors
+    const userIds = compatibleDonors.map(donor => donor.user_id);
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
+      .select('user_id, email')
+      .in('user_id', userIds);
+    
+    if (usersError || !users) {
+      console.error("Error fetching donor emails:", usersError);
+      return;
+    }
+    
+    // Map donor IDs to emails
+    const recipientEmails = users.map(user => user.email).filter(Boolean) as string[];
+    
+    if (recipientEmails.length === 0) {
+      console.log("No valid recipient emails found");
+      return;
+    }
+    
+    const subject = `Urgent: ${bloodType} Blood Stock is Low`;
+    const message = `Our ${bloodType} blood supply is critically low with only ${currentUnits} units available. As someone with compatible blood type, your donation would be incredibly valuable right now. Please consider scheduling a donation appointment soon.`;
+    
+    // Send as a single bulk notification instead of individual notifications
+    const success = await sendBulkNotification(
+      recipientEmails,
+      subject,
+      message,
+      'lowStock',
+      { bloodType, units: currentUnits }
+    );
+    
+    if (success) {
+      toast.success(`Notified ${recipientEmails.length} eligible donors about low ${bloodType} stock`);
+    }
+  } catch (error) {
+    console.error("Error notifying donors:", error);
+    toast.error("Failed to send low stock notifications");
   }
 };
 
@@ -255,7 +345,7 @@ export const sendRequestApprovalNotification = async (hospitalEmail: string, blo
   });
 };
 
-// Function to send batch appointment reminders (for multiple appointments on the same day)
+// Function to send batch appointment reminders
 export const sendBatchAppointmentReminders = async (appointments: { email: string, date: string, location: string, timeSlot: string }[]): Promise<void> => {
   if (appointments.length === 0) return;
   
@@ -288,37 +378,54 @@ export const sendBatchAppointmentReminders = async (appointments: { email: strin
   }
 };
 
-// Mock function to get eligible donors (in a real app, this would be a database query)
-const getMockEligibleDonors = (bloodType: BloodType): { name: string, email: string, bloodType: BloodType }[] => {
-  // In a real app, this would be filtered based on eligibility, last donation date, etc.
-  return [
-    { name: "John Smith", email: "john.smith@example.com", bloodType: 'O-' as BloodType },
-    { name: "Maria Garcia", email: "maria.garcia@example.com", bloodType: 'A+' as BloodType },
-    { name: "David Lee", email: "david.lee@example.com", bloodType: 'B-' as BloodType },
-    { name: "Sarah Johnson", email: "sarah.johnson@example.com", bloodType: 'AB+' as BloodType },
-  ].filter(donor => {
-    // Filter based on compatible blood types
-    if (bloodType === 'O-') return donor.bloodType === 'O-';
-    if (bloodType === 'O+') return ['O+', 'O-'].includes(donor.bloodType);
-    if (bloodType === 'A-') return ['A-', 'O-'].includes(donor.bloodType);
-    if (bloodType === 'A+') return ['A+', 'A-', 'O+', 'O-'].includes(donor.bloodType);
-    if (bloodType === 'B-') return ['B-', 'O-'].includes(donor.bloodType);
-    if (bloodType === 'B+') return ['B+', 'B-', 'O+', 'O-'].includes(donor.bloodType);
-    if (bloodType === 'AB-') return ['AB-', 'A-', 'B-', 'O-'].includes(donor.bloodType);
-    return true; // AB+ can receive from anyone
-  });
+// Save notification preferences to Supabase
+export const saveNotificationPreferences = async (userId: string, preferences: NotificationPreferences): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('user_notification_preferences')
+      .upsert({
+        user_id: userId,
+        email: preferences.email,
+        sms: preferences.sms,
+        app: preferences.app,
+        bulk_notifications: preferences.bulkNotifications
+      });
+      
+    if (error) {
+      throw error;
+    }
+    
+    toast.success("Notification preferences updated");
+  } catch (error) {
+    console.error("Error saving notification preferences:", error);
+    toast.error("Failed to save notification preferences");
+  }
 };
 
-// Save notification preferences to localStorage
-export const saveNotificationPreferences = (userId: string, preferences: NotificationPreferences): void => {
-  localStorage.setItem(`notificationPreferences_${userId}`, JSON.stringify(preferences));
-  toast.success("Notification preferences updated");
-};
-
-// Get notification preferences from localStorage
-export const getNotificationPreferences = (userId: string): NotificationPreferences => {
+// Get notification preferences from Supabase
+export const getNotificationPreferences = async (userId: string): Promise<NotificationPreferences> => {
   const defaultPreferences = { email: true, sms: false, app: true, bulkNotifications: true };
-  const savedPreferences = localStorage.getItem(`notificationPreferences_${userId}`);
   
-  return savedPreferences ? JSON.parse(savedPreferences) : defaultPreferences;
+  try {
+    const { data, error } = await supabase
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+      
+    if (error || !data) {
+      console.log("No saved preferences found, using defaults");
+      return defaultPreferences;
+    }
+    
+    return {
+      email: data.email,
+      sms: data.sms,
+      app: data.app,
+      bulkNotifications: data.bulk_notifications
+    };
+  } catch (error) {
+    console.error("Error fetching notification preferences:", error);
+    return defaultPreferences;
+  }
 };

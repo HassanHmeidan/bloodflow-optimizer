@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +8,7 @@ import { toast } from "sonner";
 import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences, sendEmailNotification } from '@/lib/notifications';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { supabase } from '@/lib/supabase';
 
 export const NotificationSettings = () => {
   const [email, setEmail] = useState('');
@@ -28,86 +28,131 @@ export const NotificationSettings = () => {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   useEffect(() => {
-    const userId = localStorage.getItem('authToken');
-    if (!userId) return;
+    const loadUserData = async () => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, phone')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (profile) {
+        setEmail(profile.email || '');
+        setPhone(profile.phone || '');
+      }
+      
+      // Get notification preferences
+      const userPreferences = await getNotificationPreferences(user.id);
+      setPreferences(userPreferences);
+      
+      // Load email service configuration
+      const { data: emailConfig } = await supabase
+        .from('app_settings')
+        .select('use_real_email_service, email_service_url, email_sender')
+        .single();
+      
+      if (emailConfig) {
+        setUseRealEmail(emailConfig.use_real_email_service || false);
+        setEmailServiceUrl(emailConfig.email_service_url || '');
+        setEmailSender(emailConfig.email_sender || '');
+      }
+    };
     
-    const userEmail = localStorage.getItem('userEmail') || '';
-    const userPhone = localStorage.getItem('userPhone') || '';
-    setEmail(userEmail);
-    setPhone(userPhone);
-    
-    const userPreferences = getNotificationPreferences(userId);
-    setPreferences(userPreferences);
-    
-    // Load email service configuration
-    setUseRealEmail(localStorage.getItem('useRealEmailService') === 'true');
-    setEmailServiceUrl(localStorage.getItem('emailServiceUrl') || '');
-    setEmailApiKey(localStorage.getItem('emailApiKey') || '');
-    setEmailSender(localStorage.getItem('emailSender') || '');
+    loadUserData();
   }, []);
 
-  const handleSaveNotifications = () => {
-    const userId = localStorage.getItem('authToken');
-    if (!userId) {
-      toast.error("You must be logged in to save notification preferences");
-      return;
-    }
-    
-    setLoading(true);
-    
-    if (preferences.email && (!email || !email.includes('@'))) {
-      toast.error("Please enter a valid email address");
-      setLoading(false);
-      return;
-    }
-    
-    if (preferences.sms && (!phone || phone.length < 10)) {
-      toast.error("Please enter a valid phone number");
-      setLoading(false);
-      return;
-    }
-
-    // Save user contact info
-    localStorage.setItem('userEmail', email);
-    localStorage.setItem('userPhone', phone);
-    
-    // Save email service configuration if using real email
-    localStorage.setItem('useRealEmailService', useRealEmail.toString());
-    if (useRealEmail) {
-      if (!emailServiceUrl) {
-        toast.error("Please enter an email service URL");
+  const handleSaveNotifications = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error("You must be logged in to save notification preferences");
+        return;
+      }
+      
+      setLoading(true);
+      
+      if (preferences.email && (!email || !email.includes('@'))) {
+        toast.error("Please enter a valid email address");
         setLoading(false);
         return;
       }
       
-      localStorage.setItem('emailServiceUrl', emailServiceUrl);
-      localStorage.setItem('emailApiKey', emailApiKey);
-      localStorage.setItem('emailSender', emailSender || 'noreply@blooddonation.com');
-    }
-    
-    // Save notification preferences
-    saveNotificationPreferences(userId, preferences);
-    
-    setTimeout(() => {
+      if (preferences.sms && (!phone || phone.length < 10)) {
+        toast.error("Please enter a valid phone number");
+        setLoading(false);
+        return;
+      }
+
+      // Update user profile with contact info
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          email,
+          phone
+        });
+      
+      if (profileError) {
+        throw profileError;
+      }
+      
+      // Save email service configuration if using real email
+      if (useRealEmail) {
+        if (!emailServiceUrl) {
+          toast.error("Please enter an email service URL");
+          setLoading(false);
+          return;
+        }
+        
+        const { error: settingsError } = await supabase
+          .from('app_settings')
+          .upsert({
+            id: 'email-settings',
+            use_real_email_service: useRealEmail,
+            email_service_url: emailServiceUrl,
+            email_sender: emailSender || 'noreply@blooddonation.com'
+          });
+        
+        if (settingsError) {
+          throw settingsError;
+        }
+      }
+      
+      // Save notification preferences
+      await saveNotificationPreferences(user.id, preferences);
+      
+      setTimeout(() => {
+        setLoading(false);
+      }, 800);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("Failed to save settings");
       setLoading(false);
-    }, 800);
+    }
   };
 
   const handleTestNotification = async () => {
-    const userId = localStorage.getItem('authToken');
-    if (!userId) {
-      toast.error("You must be logged in to test notifications");
-      return;
-    }
-
-    if (preferences.email && (!email || !email.includes('@'))) {
-      toast.error("Please enter a valid email address to test email notifications");
-      return;
-    }
-    
-    setTestLoading(true);
-    
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error("You must be logged in to test notifications");
+        return;
+      }
+
+      if (preferences.email && (!email || !email.includes('@'))) {
+        toast.error("Please enter a valid email address to test email notifications");
+        return;
+      }
+      
+      setTestLoading(true);
+      
       if (preferences.email) {
         await sendEmailNotification({
           recipient: email,
@@ -149,11 +194,11 @@ export const NotificationSettings = () => {
       <CardContent className="space-y-6">
         <Alert variant="default" className="bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertTitle>Demo Mode</AlertTitle>
+          <AlertTitle>Connected to Supabase</AlertTitle>
           <AlertDescription>
             {useRealEmail 
-              ? "You have enabled real email sending. Make sure you've configured your email service properly."
-              : "This is a demo application. Email notifications are simulated and not actually sent to real email addresses unless you enable real email service in advanced settings."
+              ? "You have enabled real email sending. Configure your email service in Supabase Edge Functions."
+              : "Emails are simulated by default. Enable real email service in advanced settings and configure Supabase Edge Functions to send actual emails."
             }
           </AlertDescription>
         </Alert>
