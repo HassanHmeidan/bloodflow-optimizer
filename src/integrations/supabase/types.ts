@@ -9,7 +9,386 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          description: string | null
+          id: string
+          setting_name: string
+          setting_value: Json
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          setting_name: string
+          setting_value: Json
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          setting_name?: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      blood_inventory: {
+        Row: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at: string
+          donation_date: string
+          donor_id: string | null
+          expiry_date: string
+          id: string
+          location_id: string | null
+          status: string
+          units: number
+        }
+        Insert: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          donation_date: string
+          donor_id?: string | null
+          expiry_date: string
+          id?: string
+          location_id?: string | null
+          status?: string
+          units: number
+        }
+        Update: {
+          blood_type?: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          donation_date?: string
+          donor_id?: string | null
+          expiry_date?: string
+          id?: string
+          location_id?: string | null
+          status?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_inventory_donor_id_fkey"
+            columns: ["donor_id"]
+            isOneToOne: false
+            referencedRelation: "donor_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blood_inventory_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "donation_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blood_requests: {
+        Row: {
+          approval_date: string | null
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at: string
+          fulfillment_date: string | null
+          hospital_id: string
+          id: string
+          notes: string | null
+          priority: string
+          request_date: string
+          status: string
+          units: number
+        }
+        Insert: {
+          approval_date?: string | null
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          fulfillment_date?: string | null
+          hospital_id: string
+          id?: string
+          notes?: string | null
+          priority: string
+          request_date?: string
+          status?: string
+          units: number
+        }
+        Update: {
+          approval_date?: string | null
+          blood_type?: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          fulfillment_date?: string | null
+          hospital_id?: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          request_date?: string
+          status?: string
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_requests_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      donation_appointments: {
+        Row: {
+          appointment_date: string
+          center_id: string
+          created_at: string
+          donor_id: string
+          id: string
+          notes: string | null
+          status: string
+          time_slot: string
+        }
+        Insert: {
+          appointment_date: string
+          center_id: string
+          created_at?: string
+          donor_id: string
+          id?: string
+          notes?: string | null
+          status?: string
+          time_slot: string
+        }
+        Update: {
+          appointment_date?: string
+          center_id?: string
+          created_at?: string
+          donor_id?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          time_slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donation_appointments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "donation_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donation_appointments_donor_id_fkey"
+            columns: ["donor_id"]
+            isOneToOne: false
+            referencedRelation: "donor_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      donation_centers: {
+        Row: {
+          address: string
+          city: string
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          operating_hours: string | null
+          phone: string
+          postal_code: string
+          state: string
+        }
+        Insert: {
+          address: string
+          city: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          operating_hours?: string | null
+          phone: string
+          postal_code: string
+          state: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          operating_hours?: string | null
+          phone?: string
+          postal_code?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      donor_profiles: {
+        Row: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at: string
+          eligible_to_donate: boolean
+          id: string
+          last_donation_date: string | null
+          medical_history: Json | null
+          user_id: string
+        }
+        Insert: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          eligible_to_donate?: boolean
+          id?: string
+          last_donation_date?: string | null
+          medical_history?: Json | null
+          user_id: string
+        }
+        Update: {
+          blood_type?: Database["public"]["Enums"]["blood_type"]
+          created_at?: string
+          eligible_to_donate?: boolean
+          id?: string
+          last_donation_date?: string | null
+          medical_history?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      email_configuration: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          is_active: boolean
+          sender_email: string
+          service_name: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sender_email: string
+          service_name: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sender_email?: string
+          service_name?: string
+        }
+        Relationships: []
+      }
+      hospitals: {
+        Row: {
+          address: string
+          city: string
+          contact_person: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          postal_code: string
+          state: string
+        }
+        Insert: {
+          address: string
+          city: string
+          contact_person?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          postal_code: string
+          state: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          contact_person?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          postal_code?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          blood_type: Database["public"]["Enums"]["blood_type"] | null
+          created_at: string
+          event_type: string
+          id: string
+          is_bulk: boolean
+          message: string
+          recipient_id: string
+          sent_at: string
+          status: string
+          subject: string | null
+          units: number | null
+        }
+        Insert: {
+          blood_type?: Database["public"]["Enums"]["blood_type"] | null
+          created_at?: string
+          event_type: string
+          id?: string
+          is_bulk?: boolean
+          message: string
+          recipient_id: string
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          units?: number | null
+        }
+        Update: {
+          blood_type?: Database["public"]["Enums"]["blood_type"] | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          is_bulk?: boolean
+          message?: string
+          recipient_id?: string
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          units?: number | null
+        }
+        Relationships: []
+      }
+      user_notification_preferences: {
+        Row: {
+          app: boolean
+          bulk_notifications: boolean
+          created_at: string
+          email: boolean
+          id: string
+          sms: boolean
+          user_id: string
+        }
+        Insert: {
+          app?: boolean
+          bulk_notifications?: boolean
+          created_at?: string
+          email?: boolean
+          id?: string
+          sms?: boolean
+          user_id: string
+        }
+        Update: {
+          app?: boolean
+          bulk_notifications?: boolean
+          created_at?: string
+          email?: boolean
+          id?: string
+          sms?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +397,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      blood_type: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +512,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      blood_type: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+    },
   },
 } as const

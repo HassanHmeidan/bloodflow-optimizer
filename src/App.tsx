@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +16,7 @@ import DonorManagementPage from "./pages/DonorManagementPage";
 import BloodRequestsPage from "./pages/BloodRequestsPage";
 import { Chatbot } from "./components/Chatbot";
 import NotificationHistoryPage from "./pages/NotificationHistoryPage";
+import { SupabaseProvider } from "./contexts/SupabaseContext";
 
 // This frontend connects to a Python backend API
 // The backend would typically be built with frameworks like:
@@ -58,46 +58,48 @@ const ScrollToTop = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <Routes>
-          {/* Core Routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/donate" element={<Donate />} />
-          <Route path="/request" element={<Request />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/profile" element={<Profile />} />
-          
-          {/* Admin/Dashboard Routes */}
-          <Route path="/dashboard/donors" element={<DonorManagementPage />} />
-          <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
-          <Route path="/dashboard/inventory" element={<Dashboard />} />
-          <Route path="/dashboard/analytics" element={<Dashboard />} />
-          <Route path="/dashboard/notifications" element={<NotificationHistoryPage />} />
-          
-          {/* Common redirect routes for the resources in footer */}
-          <Route path="/guidelines" element={<About />} />
-          <Route path="/blood-types" element={<About />} />
-          <Route path="/health-info" element={<About />} />
-          <Route path="/process" element={<Donate />} />
-          <Route path="/research" element={<About />} />
-          <Route path="/privacy" element={<About />} />
-          <Route path="/terms" element={<About />} />
-          <Route path="/cookies" element={<About />} />
-          <Route path="/faqs" element={<About />} />
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        {/* The Chatbot is placed here to ensure it's available on all pages */}
-        <Chatbot />
-      </BrowserRouter>
-    </TooltipProvider>
+    <SupabaseProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <Routes>
+            {/* Core Routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/donate" element={<Donate />} />
+            <Route path="/request" element={<Request />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/profile" element={<Profile />} />
+            
+            {/* Admin/Dashboard Routes */}
+            <Route path="/dashboard/donors" element={<DonorManagementPage />} />
+            <Route path="/dashboard/requests" element={<BloodRequestsPage />} />
+            <Route path="/dashboard/inventory" element={<Dashboard />} />
+            <Route path="/dashboard/analytics" element={<Dashboard />} />
+            <Route path="/dashboard/notifications" element={<NotificationHistoryPage />} />
+            
+            {/* Common redirect routes for the resources in footer */}
+            <Route path="/guidelines" element={<About />} />
+            <Route path="/blood-types" element={<About />} />
+            <Route path="/health-info" element={<About />} />
+            <Route path="/process" element={<Donate />} />
+            <Route path="/research" element={<About />} />
+            <Route path="/privacy" element={<About />} />
+            <Route path="/terms" element={<About />} />
+            <Route path="/cookies" element={<About />} />
+            <Route path="/faqs" element={<About />} />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          {/* The Chatbot is placed here to ensure it's available on all pages */}
+          <Chatbot />
+        </BrowserRouter>
+      </TooltipProvider>
+    </SupabaseProvider>
   </QueryClientProvider>
 );
 
