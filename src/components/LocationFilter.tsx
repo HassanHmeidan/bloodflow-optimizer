@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Map, MapPin, Building, Warehouse, Hospital } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -6,14 +5,13 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from "@/lib/supabase";
 
-// Define the props interface for the LocationFilter component
 interface LocationFilterProps {
   onLocationSelect: (location: LocationData | null) => void;
   onError?: (error: Error) => void;
 }
 
-// Define the type for location data
 interface LocationData {
   id: string;
   name: string;
@@ -28,98 +26,62 @@ interface LocationData {
   };
 }
 
-// Mock data for locations
-const mockLocations: LocationData[] = [
-  {
-    id: "1",
-    name: "City General Hospital",
-    type: "Hospital",
-    coordinates: [-122.4194, 37.7749],
-    address: "123 Main St, San Francisco, CA",
-    bloodStock: {
-      "A+": { units: 120, capacity: 200 },
-      "O-": { units: 50, capacity: 100 },
-      "B+": { units: 80, capacity: 150 },
-    }
-  },
-  {
-    id: "2",
-    name: "Central Blood Bank",
-    type: "Blood Bank",
-    coordinates: [-122.4099, 37.7890],
-    address: "456 Market St, San Francisco, CA",
-    bloodStock: {
-      "A+": { units: 200, capacity: 300 },
-      "A-": { units: 100, capacity: 150 },
-      "B+": { units: 150, capacity: 200 },
-      "B-": { units: 75, capacity: 120 },
-      "AB+": { units: 50, capacity: 100 },
-      "AB-": { units: 25, capacity: 50 },
-      "O+": { units: 250, capacity: 400 },
-      "O-": { units: 125, capacity: 200 },
-    }
-  },
-  {
-    id: "3",
-    name: "Regional Storage Facility",
-    type: "Storage",
-    coordinates: [-122.3977, 37.7790],
-    address: "789 Howard St, San Francisco, CA",
-    bloodStock: {
-      "A+": { units: 300, capacity: 600 },
-      "O+": { units: 400, capacity: 800 },
-      "O-": { units: 150, capacity: 500 },
-    }
-  },
-  {
-    id: "4",
-    name: "East Side Medical Center",
-    type: "Hospital",
-    coordinates: [-122.3894, 37.7651],
-    address: "321 Valencia St, San Francisco, CA",
-    bloodStock: {
-      "A+": { units: 80, capacity: 120 },
-      "B-": { units: 30, capacity: 60 },
-      "O+": { units: 90, capacity: 150 },
-    }
-  },
-  {
-    id: "5",
-    name: "Bay Area Donor Center",
-    type: "Blood Bank",
-    coordinates: [-122.4064, 37.8014],
-    address: "555 Van Ness Ave, San Francisco, CA",
-    bloodStock: {
-      "A+": { units: 180, capacity: 250 },
-      "A-": { units: 90, capacity: 120 },
-      "AB+": { units: 40, capacity: 80 },
-      "O+": { units: 200, capacity: 350 },
-    }
-  }
-];
-
 export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect, onError }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [filteredLocations, setFilteredLocations] = useState<LocationData[]>(mockLocations);
+  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<LocationData[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Filter locations based on search query and selected type
+  useEffect(() => {
+    const fetchLocations = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('donation_centers')
+          .select('*');
+        if (error) throw error;
+
+        const parsed: LocationData[] = (data || []).map((loc) => ({
+          id: loc.id,
+          name: loc.name,
+          type: 'Blood Bank',
+          coordinates: [-122.4194, 37.7749],
+          address: `${loc.address}, ${loc.city}, ${loc.state}`,
+          bloodStock: {},
+        }));
+        setLocations(parsed);
+        setFilteredLocations(parsed);
+      } catch (error) {
+        console.error("Error loading locations:", error);
+        toast({
+          title: "Error loading locations",
+          description: "Could not load locations from database",
+          variant: "destructive"
+        });
+        if (onError && error instanceof Error) onError(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLocations();
+  }, [onError]);
+
   useEffect(() => {
     try {
-      let results = mockLocations;
+      let results = locations;
 
-      // Filter by search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         results = results.filter(
-          location => location.name.toLowerCase().includes(query) || 
-                      location.address.toLowerCase().includes(query)
+          location => location.name.toLowerCase().includes(query) ||
+            location.address.toLowerCase().includes(query)
         );
       }
 
-      // Filter by location type
       if (selectedType) {
         results = results.filter(location => location.type === selectedType);
       }
@@ -131,9 +93,8 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
         onError(error);
       }
     }
-  }, [searchQuery, selectedType, onError]);
+  }, [searchQuery, selectedType, locations, onError]);
 
-  // Handle location selection
   const handleSelectLocation = (location: LocationData) => {
     try {
       setSelectedLocation(location);
@@ -150,9 +111,8 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
     }
   };
 
-  // Get icon based on location type
   const getLocationIcon = (type: string) => {
-    switch(type) {
+    switch (type) {
       case 'Hospital':
         return <Hospital className="h-4 w-4 text-blue-500" />;
       case 'Blood Bank':
@@ -164,7 +124,6 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
     }
   };
 
-  // Simulate loading a map with a delay (in a real app, this would be an actual map)
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -194,7 +153,7 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
-        
+
         <Select onValueChange={(value) => setSelectedType(value === "all" ? null : value)}>
           <SelectTrigger className="flex items-center">
             <Filter className="h-4 w-4 mr-2 text-gray-400" />
@@ -208,18 +167,16 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
           </SelectContent>
         </Select>
       </div>
-      
-      {/* Interactive Map Placeholder with simulated points */}
+
       <Card className="relative h-56 overflow-hidden bg-gray-100">
         {mapLoaded ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/-122.4,37.78,12,0/400x200?access_token=pk.placeholder')] bg-cover">
-              {/* Simulated map markers */}
               {selectedLocation ? (
-                <div 
+                <div
                   className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 animate-pulse"
-                  style={{ 
-                    left: '50%', 
+                  style={{
+                    left: '50%',
                     top: '50%'
                   }}
                 >
@@ -232,11 +189,11 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
                 </div>
               ) : (
                 filteredLocations.slice(0, 5).map((loc, idx) => (
-                  <div 
+                  <div
                     key={loc.id}
                     className="absolute w-4 h-4 transform -translate-x-1/2 -translate-y-1/2"
-                    style={{ 
-                      left: `${20 + (idx * 15)}%`, 
+                    style={{
+                      left: `${20 + (idx * 15)}%`,
                       top: `${30 + (idx * 10)}%`
                     }}
                   >
@@ -258,10 +215,11 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
           </div>
         )}
       </Card>
-      
-      {/* Locations list */}
+
       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-        {filteredLocations.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading locations...</div>
+        ) : filteredLocations.length > 0 ? (
           filteredLocations.map((location) => (
             <Card
               key={location.id}
@@ -284,7 +242,7 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
                   {location.type}
                 </span>
               </div>
-              
+
               <div className="mt-2 text-xs text-gray-600">
                 <div className="flex gap-2">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-bloodRed-100 text-bloodRed-800 font-medium">
@@ -301,7 +259,7 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
           <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
             <MapPin className="h-8 w-8 mx-auto text-gray-300 mb-2" />
             <p>No locations found matching your criteria</p>
-            <button 
+            <button
               className="text-sm text-bloodRed-600 mt-2 hover:underline"
               onClick={() => {
                 setSearchQuery("");
@@ -313,7 +271,7 @@ export const LocationFilter: React.FC<LocationFilterProps> = ({ onLocationSelect
           </div>
         )}
       </div>
-      
+
       {selectedLocation && (
         <div className="flex justify-end">
           <Button
