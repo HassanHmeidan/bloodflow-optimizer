@@ -359,6 +359,33 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_notification_preferences: {
         Row: {
           app: boolean
@@ -398,6 +425,7 @@ export type Database = {
     }
     Enums: {
       blood_type: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-"
+      request_status: "pending" | "approved" | "rejected" | "fulfilled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -514,6 +542,7 @@ export const Constants = {
   public: {
     Enums: {
       blood_type: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      request_status: ["pending", "approved", "rejected", "fulfilled"],
     },
   },
 } as const

@@ -7,17 +7,52 @@ import { toast } from "sonner";
 export function useSupabase() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<{
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+  } | null>(null);
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Fetch user profile
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, phone')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data) {
+          setProfile(data);
+        }
+      }
+      
       setLoading(false);
     });
 
     // Listen for changes on auth state (login, sign out, etc)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Fetch user profile
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, phone')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data) {
+          setProfile(data);
+        }
+      } else {
+        setProfile(null);
+      }
+      
       setLoading(false);
     });
 
@@ -39,15 +74,40 @@ export function useSupabase() {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone
+          }
+        }
       });
 
-      if (error) throw error;
+      if (signUpError) throw signUpError;
+      
+      // If signup is successful, update the profile table
+      if (signUpData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone
+          })
+          .eq('id', signUpData.user.id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+        }
+      }
+
       toast.success('Registration successful! Please check your email to verify your account.');
+      return true;
     } catch (error: any) {
       toast.error(error.message);
       return false;
@@ -64,11 +124,41 @@ export function useSupabase() {
     }
   };
 
+  const updateProfile = async (profileData: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+  }) => {
+    try {
+      if (!user) {
+        throw new Error('No user logged in');
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setProfile(prev => ({ ...prev, ...profileData }));
+
+      toast.success('Profile updated successfully!');
+      return true;
+    } catch (error: any) {
+      toast.error(error.message);
+      return false;
+    }
+  };
+
   return {
     user,
     loading,
+    profile,
     signIn,
     signUp,
-    signOut
+    signOut,
+    updateProfile
   };
 }
