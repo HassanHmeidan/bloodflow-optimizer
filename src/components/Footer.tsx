@@ -16,7 +16,7 @@ export const Footer = () => {
               <span className="text-xl font-semibold">LifeFlow</span>
             </Link>
             <p className="text-gray-600 text-sm">
-              Connecting donors with those in need through innovative technology and compassionate care.
+              Connecting donors with those in need through innovative technology and compassionate care across Lebanon.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-500 hover:text-bloodRed-600 transition-colors">
@@ -93,17 +93,17 @@ export const Footer = () => {
               <li className="flex items-start">
                 <MapPin className="h-5 w-5 text-bloodRed-500 mr-3 flex-shrink-0" />
                 <span className="text-gray-600 text-sm">
-                  123 Medical Center Ave, Suite 500<br />
-                  San Francisco, CA 94143
+                  Martyrs' Square, Downtown Beirut<br />
+                  Beirut, Lebanon
                 </span>
               </li>
               <li className="flex items-center">
                 <Phone className="h-5 w-5 text-bloodRed-500 mr-3 flex-shrink-0" />
-                <span className="text-gray-600 text-sm">+1 (555) 123-4567</span>
+                <span className="text-gray-600 text-sm">+961 1 123 456</span>
               </li>
               <li className="flex items-center">
                 <Mail className="h-5 w-5 text-bloodRed-500 mr-3 flex-shrink-0" />
-                <span className="text-gray-600 text-sm">contact@lifeflow.org</span>
+                <span className="text-gray-600 text-sm">contact@lifeflow.lb</span>
               </li>
             </ul>
           </div>
@@ -111,7 +111,7 @@ export const Footer = () => {
         
         <div className="border-t border-gray-200 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-500 text-sm">
-            &copy; {currentYear} LifeFlow Blood Bank. All rights reserved.
+            &copy; {currentYear} LifeFlow Blood Bank Lebanon. All rights reserved.
           </p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <Link to="/about#privacy" className="text-gray-500 hover:text-bloodRed-600 text-sm transition-colors">

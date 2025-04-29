@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -79,7 +78,7 @@ const Request = () => {
                 <Building className="h-16 w-16 mx-auto mb-6 text-white" />
                 <h1 className="text-3xl sm:text-4xl font-bold mb-4">Request Blood</h1>
                 <p className="text-xl text-white/80">
-                  Secure request system for verified hospitals. Our AI will help match your request with eligible donors.
+                  Secure request system for verified Lebanese hospitals. Our AI will help match your request with eligible donors.
                 </p>
               </motion.div>
             </div>
@@ -100,7 +99,7 @@ const Request = () => {
                   <ShieldAlert className="h-16 w-16 text-amber-500 mx-auto mb-4" />
                   <h2 className="text-2xl font-bold mb-3">Hospital Authentication Required</h2>
                   <p className="text-gray-600 mb-6">
-                    For patient safety and security, only verified hospital accounts can submit blood requests. 
+                    For patient safety and security, only verified Lebanese hospital accounts can submit blood requests. 
                     Please sign in with your hospital credentials to continue.
                   </p>
                   <Button 
@@ -174,7 +173,7 @@ const Request = () => {
                     
                     <div className="space-y-2">
                       <Label htmlFor="address">Delivery Address</Label>
-                      <Textarea id="address" placeholder="Full address for blood delivery" rows={3} required />
+                      <Textarea id="address" placeholder="Full address for blood delivery in Lebanon" rows={3} required />
                     </div>
                     
                     <div className="space-y-2">
@@ -190,7 +189,7 @@ const Request = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label htmlFor="contactPhone">Contact Phone</Label>
-                        <Input id="contactPhone" type="tel" placeholder="Phone number" required />
+                        <Input id="contactPhone" type="tel" placeholder="+961 XX XXX XXX" required />
                       </div>
                       
                       <div className="space-y-2">
@@ -210,7 +209,7 @@ const Request = () => {
                       <AlertCircle className="h-5 w-5 text-amber-500 mr-3 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-amber-800">
                         <strong>Important:</strong> Please provide accurate information to ensure fast processing. 
-                        For emergency cases, we recommend also calling our emergency hotline at 1-800-LIFE-NOW.
+                        For emergency cases, we recommend also calling our emergency hotline at +961 1 123 456.
                       </div>
                     </div>
                     
@@ -241,30 +240,34 @@ const Request = () => {
               >
                 <h2 className="text-3xl font-bold mb-4">Hospital Request Process</h2>
                 <p className="text-gray-600">
-                  How our AI-powered system processes blood requests from submission to delivery.
+                  How our AI-powered system processes blood requests from Lebanese hospitals.
                 </p>
               </motion.div>
               
               <div className="space-y-8">
                 {[
                   {
+                    number: 1,
                     title: "Submit Request",
                     description: "Hospital submits a verified request with all required patient and medical information.",
                     icon: FileText,
                   },
                   {
+                    number: 2,
                     title: "AI-Powered Matching",
-                    description: "Our intelligent system analyzes the request and matches it with available inventory and suitable donors.",
+                    description: "Our intelligent system analyzes the request and matches it with available inventory and suitable donors throughout Lebanon.",
                     icon: Clipboard,
                   },
                   {
+                    number: 3,
                     title: "Rapid Processing",
-                    description: "Requests are prioritized based on urgency level, with emergency needs fast-tracked.",
+                    description: "Requests are prioritized based on urgency level, with emergency needs fast-tracked to nearby centers in Beirut and across Lebanon.",
                     icon: CalendarClock,
                   },
                   {
+                    number: 4,
                     title: "Confirmation & Delivery",
-                    description: "You'll receive a confirmation with delivery details and real-time tracking information.",
+                    description: "You'll receive a confirmation with delivery details and real-time tracking information throughout Lebanon's regions.",
                     icon: AlertCircle,
                   },
                 ].map((step, index) => (
@@ -277,7 +280,7 @@ const Request = () => {
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                   >
                     <div className="bg-white h-12 w-12 rounded-full flex items-center justify-center shadow-sm border border-gray-200 mr-4 flex-shrink-0">
-                      <step.icon className="h-6 w-6 text-bloodRed-600" />
+                      <span className="font-bold text-bloodRed-600">{step.number}</span>
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
