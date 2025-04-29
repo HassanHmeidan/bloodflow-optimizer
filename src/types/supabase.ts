@@ -293,6 +293,58 @@ export type Database = {
           created_at?: string
         }
       }
+      app_settings: {
+        Row: {
+          id: string
+          setting_name: string
+          setting_value: Json
+          description: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_name: string
+          setting_value: Json
+          description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_name?: string
+          setting_value?: Json
+          description?: string | null
+          updated_at?: string
+        }
+      }
+      profiles: {
+        Row: {
+          id: string
+          created_at: string | null
+          first_name: string | null
+          last_name: string | null
+          phone: string | null
+          updated_at: string | null
+          email: string | null
+        }
+        Insert: {
+          id: string
+          created_at?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          email?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string | null
+          email?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

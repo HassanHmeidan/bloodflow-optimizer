@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { supabase } from "./supabase";
 
@@ -32,12 +31,12 @@ const isValidEmail = (email: string): boolean => {
 const sendRealEmail = async (to: string, subject: string, body: string): Promise<boolean> => {
   try {
     // Get email configuration from Supabase
-    const { data: config, error: configError } = await supabase
+    const { data: configData, error: configError } = await supabase
       .from('email_configuration')
       .select('*')
       .single();
     
-    if (configError || !config) {
+    if (configError || !configData) {
       console.error("Email configuration not found:", configError);
       return false;
     }
@@ -48,7 +47,7 @@ const sendRealEmail = async (to: string, subject: string, body: string): Promise
         to,
         subject,
         body,
-        from: config.sender_email || 'noreply@blooddonation.com'
+        from: configData.sender_email || 'noreply@blooddonation.com'
       }
     });
 
@@ -83,14 +82,17 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
     // Get email sending configuration from Supabase
     const { data: appSettings, error: settingsError } = await supabase
       .from('app_settings')
-      .select('use_real_email_service')
+      .select('setting_value')
+      .eq('setting_name', 'email_configuration')
       .single();
     
     if (settingsError) {
       console.error("Could not fetch app settings:", settingsError);
+      return false;
     }
     
-    const useRealEmailService = appSettings?.use_real_email_service || false;
+    const emailConfig = appSettings?.setting_value as any || {};
+    const useRealEmailService = emailConfig.use_real_email_service || false;
     let success = false;
 
     if (useRealEmailService) {
@@ -121,15 +123,15 @@ export const sendEmailNotification = async (data: NotificationData): Promise<boo
     }
     
     // Save notification to Supabase
-    const { data: user } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!user.user) {
+    if (!userData.user) {
       console.error("User not authenticated");
       return success;
     }
     
     await supabase.from('notifications').insert({
-      recipient_id: user.user.id,
+      recipient_id: userData.user.id,
       subject: data.subject,
       message: data.message,
       event_type: data.event,
@@ -161,14 +163,17 @@ export const sendBulkNotification = async (recipients: string[], subject: string
     // Get email sending configuration
     const { data: appSettings, error: settingsError } = await supabase
       .from('app_settings')
-      .select('use_real_email_service')
+      .select('setting_value')
+      .eq('setting_name', 'email_configuration')
       .single();
     
     if (settingsError) {
       console.error("Could not fetch app settings:", settingsError);
+      return false;
     }
     
-    const useRealEmailService = appSettings?.use_real_email_service || false;
+    const emailConfig = appSettings?.setting_value as any || {};
+    const useRealEmailService = emailConfig.use_real_email_service || false;
     
     // For real emails, call the Supabase Edge Function for bulk sending
     if (useRealEmailService) {
@@ -198,15 +203,15 @@ export const sendBulkNotification = async (recipients: string[], subject: string
     });
     
     // Save a single entry to notification history for the bulk send
-    const { data: user } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!user.user) {
+    if (!userData.user) {
       console.error("User not authenticated");
       return true;
     }
     
     await supabase.from('notifications').insert({
-      recipient_id: user.user.id,
+      recipient_id: userData.user.id,
       subject,
       message,
       event_type: event,
@@ -264,18 +269,20 @@ export const notifyLowStockDonors = async (bloodType: BloodType, currentUnits: n
     
     // Get user emails for the compatible donors
     const userIds = compatibleDonors.map(donor => donor.user_id);
-    const { data: users, error: usersError } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('user_id, email')
-      .in('user_id', userIds);
+      .select('id, email')
+      .in('id', userIds);
     
-    if (usersError || !users) {
-      console.error("Error fetching donor emails:", usersError);
+    if (profilesError || !profiles) {
+      console.error("Error fetching donor emails:", profilesError);
       return;
     }
     
     // Map donor IDs to emails
-    const recipientEmails = users.map(user => user.email).filter(Boolean) as string[];
+    const recipientEmails = profiles
+      .filter(profile => profile.email) // Filter out profiles without email
+      .map(profile => profile.email as string);
     
     if (recipientEmails.length === 0) {
       console.log("No valid recipient emails found");

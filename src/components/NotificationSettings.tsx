@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, SendIcon, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Info, Save, Loader2, Users, Droplet, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { getNotificationPreferences, saveNotificationPreferences, sendEmailNotification } from '@/lib/notifications';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from '@/lib/supabase';
@@ -35,13 +35,13 @@ export const NotificationSettings = () => {
       if (!user) return;
       
       // Get user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('email, phone')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single();
       
-      if (profile) {
+      if (profile && !profileError) {
         setEmail(profile.email || '');
         setPhone(profile.phone || '');
       }
@@ -51,12 +51,14 @@ export const NotificationSettings = () => {
       setPreferences(userPreferences);
       
       // Load email service configuration
-      const { data: emailConfig } = await supabase
+      const { data: appSettings, error: settingsError } = await supabase
         .from('app_settings')
-        .select('use_real_email_service, email_service_url, email_sender')
+        .select('setting_value')
+        .eq('setting_name', 'email_configuration')
         .single();
       
-      if (emailConfig) {
+      if (appSettings && !settingsError) {
+        const emailConfig = appSettings.setting_value as any;
         setUseRealEmail(emailConfig.use_real_email_service || false);
         setEmailServiceUrl(emailConfig.email_service_url || '');
         setEmailSender(emailConfig.email_sender || '');
@@ -92,11 +94,11 @@ export const NotificationSettings = () => {
       // Update user profile with contact info
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id,
+        .update({
           email,
           phone
-        });
+        })
+        .eq('id', user.id);
       
       if (profileError) {
         throw profileError;
@@ -110,14 +112,19 @@ export const NotificationSettings = () => {
           return;
         }
         
+        // Update email configuration in app_settings
+        const emailConfig = {
+          use_real_email_service: useRealEmail,
+          email_service_url: emailServiceUrl,
+          email_sender: emailSender || 'noreply@blooddonation.com'
+        };
+        
         const { error: settingsError } = await supabase
           .from('app_settings')
-          .upsert({
-            id: 'email-settings',
-            use_real_email_service: useRealEmail,
-            email_service_url: emailServiceUrl,
-            email_sender: emailSender || 'noreply@blooddonation.com'
-          });
+          .update({
+            setting_value: emailConfig
+          })
+          .eq('setting_name', 'email_configuration');
         
         if (settingsError) {
           throw settingsError;
