@@ -35,16 +35,17 @@ interface BloodInventoryProps {
   simpleView?: boolean;
 }
 
-// This would typically come from a real data source
+// Sample data reflecting Lebanese blood type distribution
+// Lebanon has higher rates of B and O type blood compared to Western populations
 const stockData: BloodStockData[] = [
-  { bloodType: 'A+', units: 450, capacity: 1000, expiryDate: '2023-08-15' },
-  { bloodType: 'A-', units: 120, capacity: 500, expiryDate: '2023-08-20' },
-  { bloodType: 'B+', units: 300, capacity: 800, expiryDate: '2023-08-18' },
-  { bloodType: 'B-', units: 75, capacity: 400, expiryDate: '2023-08-22' },
-  { bloodType: 'AB+', units: 150, capacity: 600, expiryDate: '2023-08-25' },
-  { bloodType: 'AB-', units: 50, capacity: 300, expiryDate: '2023-08-30' },
-  { bloodType: 'O+', units: 500, capacity: 1200, expiryDate: '2023-08-10' },
-  { bloodType: 'O-', units: 200, capacity: 700, expiryDate: '2023-08-12' },
+  { bloodType: 'A+', units: 380, capacity: 1000, expiryDate: '2025-05-15' },
+  { bloodType: 'A-', units: 95, capacity: 500, expiryDate: '2025-05-20' },
+  { bloodType: 'B+', units: 420, capacity: 800, expiryDate: '2025-05-18' }, // Higher B+ rate
+  { bloodType: 'B-', units: 110, capacity: 400, expiryDate: '2025-05-22' }, // Higher B- rate
+  { bloodType: 'AB+', units: 120, capacity: 600, expiryDate: '2025-05-25' },
+  { bloodType: 'AB-', units: 40, capacity: 300, expiryDate: '2025-05-30' },
+  { bloodType: 'O+', units: 650, capacity: 1200, expiryDate: '2025-05-10' }, // Higher O+ rate
+  { bloodType: 'O-', units: 230, capacity: 700, expiryDate: '2025-05-12' }, // Higher O- rate
 ];
 
 export const BloodInventory = ({ simpleView = false }: BloodInventoryProps) => {
