@@ -27,7 +27,18 @@ export function usePredictiveDemand() {
         
         if (error) throw error;
         
-        setDemandForecasts(data || []);
+        // Type cast the urgency_level to ensure it matches our DemandForecast type
+        const typedData: DemandForecast[] = data?.map(item => ({
+          id: item.id,
+          blood_type: item.blood_type,
+          short_term_demand: item.short_term_demand,
+          medium_term_demand: item.medium_term_demand,
+          // Cast the urgency_level to the specific union type
+          urgency_level: item.urgency_level.toLowerCase() as 'low' | 'medium' | 'high' | 'critical',
+          last_updated: item.last_updated
+        })) || [];
+        
+        setDemandForecasts(typedData);
       } catch (err) {
         console.error('Error fetching predictive demand data:', err);
         setError(err instanceof Error ? err : new Error('Unknown error occurred'));
