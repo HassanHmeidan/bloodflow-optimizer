@@ -1,8 +1,6 @@
 
-// This is a placeholder for actual ML models in the future
-// In a real implementation, this would connect to a Python backend with ML models
-
 import { toast } from "sonner";
+import { supabase } from '@/lib/supabase';
 
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
@@ -21,88 +19,103 @@ type InventoryLevel = {
   expiringWithin7Days: number;
 };
 
-// Simulated AI forecast (in a real system, this would call a Python ML model)
+// Fetch AI forecast from our database
 export const getPredictiveDemand = async (): Promise<DemandForecast[]> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // In a real system, this would be the result of a machine learning model
-  // analyzing historical data, seasonal patterns, upcoming surgeries, etc.
-  return [
-    {
-      bloodType: 'O-',
-      shortTermDemand: 45,
-      mediumTermDemand: 180,
-      urgencyLevel: 'critical',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'O+',
-      shortTermDemand: 65,
-      mediumTermDemand: 240,
-      urgencyLevel: 'high',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'A+',
-      shortTermDemand: 55,
-      mediumTermDemand: 210,
-      urgencyLevel: 'medium',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'A-',
-      shortTermDemand: 25,
-      mediumTermDemand: 100,
-      urgencyLevel: 'medium',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'B+',
-      shortTermDemand: 30,
-      mediumTermDemand: 120,
-      urgencyLevel: 'low',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'B-',
-      shortTermDemand: 15,
-      mediumTermDemand: 60,
-      urgencyLevel: 'medium',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'AB+',
-      shortTermDemand: 10,
-      mediumTermDemand: 40,
-      urgencyLevel: 'low',
-      lastUpdated: new Date()
-    },
-    {
-      bloodType: 'AB-',
-      shortTermDemand: 5,
-      mediumTermDemand: 20,
-      urgencyLevel: 'high',
-      lastUpdated: new Date()
-    }
-  ];
+  try {
+    const { data, error } = await supabase
+      .from('predictive_demand')
+      .select('*');
+    
+    if (error) throw error;
+    
+    // Transform the data to match our expected format
+    return (data || []).map(item => ({
+      bloodType: item.blood_type as BloodType,
+      shortTermDemand: item.short_term_demand,
+      mediumTermDemand: item.medium_term_demand,
+      urgencyLevel: item.urgency_level as 'low' | 'medium' | 'high' | 'critical',
+      lastUpdated: new Date(item.last_updated)
+    }));
+  } catch (error) {
+    console.error("Error fetching predictive demand:", error);
+    // Return empty array to prevent application crashes
+    return [];
+  }
 };
 
 export const getCurrentInventory = async (): Promise<InventoryLevel[]> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // In a real system, this would come from a database
-  return [
-    { bloodType: 'O-', currentUnits: 15, optimalUnits: 50, expiringWithin7Days: 3 },
-    { bloodType: 'O+', currentUnits: 45, optimalUnits: 70, expiringWithin7Days: 8 },
-    { bloodType: 'A+', currentUnits: 50, optimalUnits: 60, expiringWithin7Days: 12 },
-    { bloodType: 'A-', currentUnits: 20, optimalUnits: 30, expiringWithin7Days: 5 },
-    { bloodType: 'B+', currentUnits: 35, optimalUnits: 35, expiringWithin7Days: 7 },
-    { bloodType: 'B-', currentUnits: 10, optimalUnits: 20, expiringWithin7Days: 2 },
-    { bloodType: 'AB+', currentUnits: 15, optimalUnits: 15, expiringWithin7Days: 3 },
-    { bloodType: 'AB-', currentUnits: 5, optimalUnits: 10, expiringWithin7Days: 1 }
-  ];
+  try {
+    // Get current inventory from Supabase
+    const { data, error } = await supabase
+      .from('blood_inventory')
+      .select(`
+        blood_type,
+        units
+      `)
+      .eq('status', 'available');
+    
+    if (error) throw error;
+    
+    // Group by blood type and sum units
+    const inventoryByBloodType = new Map<BloodType, number>();
+    
+    for (const item of (data || [])) {
+      const bloodType = item.blood_type as BloodType;
+      const currentUnits = inventoryByBloodType.get(bloodType) || 0;
+      inventoryByBloodType.set(bloodType, currentUnits + item.units);
+    }
+    
+    // Get expiring units (those expiring in 7 days)
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    
+    const { data: expiringData, error: expiringError } = await supabase
+      .from('blood_inventory')
+      .select(`
+        blood_type,
+        units
+      `)
+      .eq('status', 'available')
+      .lt('expiry_date', sevenDaysFromNow.toISOString());
+    
+    if (expiringError) throw expiringError;
+    
+    // Group expiring by blood type
+    const expiringByBloodType = new Map<BloodType, number>();
+    
+    for (const item of (expiringData || [])) {
+      const bloodType = item.blood_type as BloodType;
+      const currentUnits = expiringByBloodType.get(bloodType) || 0;
+      expiringByBloodType.set(bloodType, currentUnits + item.units);
+    }
+    
+    // Calculate optimal units based on inventory or use default values
+    // The optimal values could later be stored in a configuration table
+    const optimalUnitsByBloodType: Record<BloodType, number> = {
+      'O-': 50,
+      'O+': 70,
+      'A+': 60,
+      'A-': 30,
+      'B+': 35,
+      'B-': 20,
+      'AB+': 15,
+      'AB-': 10
+    };
+    
+    // Transform into the expected format
+    const bloodTypes: BloodType[] = ['O-', 'O+', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+    
+    return bloodTypes.map(bloodType => ({
+      bloodType,
+      currentUnits: inventoryByBloodType.get(bloodType) || 0,
+      optimalUnits: optimalUnitsByBloodType[bloodType],
+      expiringWithin7Days: expiringByBloodType.get(bloodType) || 0
+    }));
+  } catch (error) {
+    console.error("Error fetching current inventory:", error);
+    // Return empty array to prevent application crashes
+    return [];
+  }
 };
 
 // Generate donor recommendations based on inventory and predicted demand
@@ -160,12 +173,13 @@ export const getTargetedDonorRecommendations = async (bloodType: BloodType | nul
 // Function to notify donors based on AI recommendations
 export const notifyEligibleDonors = async (bloodType: BloodType): Promise<void> => {
   try {
-    // In a real system, this would filter donors by blood type and eligibility date
+    // In a real system, this would call a Supabase Edge Function
+    // that would filter donors by blood type and eligibility date
     // and send them personalized notifications via email/SMS/push
     
     const message = await getTargetedDonorRecommendations(bloodType);
     
-    // Simulate success
+    // For now, we'll just show a toast
     toast.success(`Notifications sent to eligible ${bloodType} donors`, {
       description: `Message: ${message.substring(0, 60)}...`,
     });

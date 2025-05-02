@@ -42,6 +42,7 @@ export type Database = {
           expiry_date: string
           id: string
           location_id: string | null
+          location_name: string | null
           status: string
           units: number
         }
@@ -53,6 +54,7 @@ export type Database = {
           expiry_date: string
           id?: string
           location_id?: string | null
+          location_name?: string | null
           status?: string
           units: number
         }
@@ -64,6 +66,7 @@ export type Database = {
           expiry_date?: string
           id?: string
           location_id?: string | null
+          location_name?: string | null
           status?: string
           units?: number
         }
@@ -134,6 +137,33 @@ export type Database = {
           },
         ]
       }
+      chatbot_responses: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          keywords: string[]
+          query_pattern: string
+          response_text: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          keywords: string[]
+          query_pattern: string
+          response_text: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          keywords?: string[]
+          query_pattern?: string
+          response_text?: string
+        }
+        Relationships: []
+      }
       donation_appointments: {
         Row: {
           appointment_date: string
@@ -189,8 +219,10 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          location_coordinates: Json | null
           name: string
           operating_hours: string | null
+          operating_status: string | null
           phone: string
           postal_code: string
           state: string
@@ -201,8 +233,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          location_coordinates?: Json | null
           name: string
           operating_hours?: string | null
+          operating_status?: string | null
           phone: string
           postal_code: string
           state: string
@@ -213,8 +247,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          location_coordinates?: Json | null
           name?: string
           operating_hours?: string | null
+          operating_status?: string | null
           phone?: string
           postal_code?: string
           state?: string
@@ -356,6 +392,33 @@ export type Database = {
           status?: string
           subject?: string | null
           units?: number | null
+        }
+        Relationships: []
+      }
+      predictive_demand: {
+        Row: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          id: string
+          last_updated: string | null
+          medium_term_demand: number
+          short_term_demand: number
+          urgency_level: string
+        }
+        Insert: {
+          blood_type: Database["public"]["Enums"]["blood_type"]
+          id?: string
+          last_updated?: string | null
+          medium_term_demand: number
+          short_term_demand: number
+          urgency_level: string
+        }
+        Update: {
+          blood_type?: Database["public"]["Enums"]["blood_type"]
+          id?: string
+          last_updated?: string | null
+          medium_term_demand?: number
+          short_term_demand?: number
+          urgency_level?: string
         }
         Relationships: []
       }

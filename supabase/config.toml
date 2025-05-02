@@ -1,1 +1,9 @@
+
+# This file is used to configure your Supabase project.
+# It's very minimal at the moment and uses default values.
+# You can learn more about the config here: https://supabase.com/docs/reference/cli/config
+
 project_id = "phcfzupckgmgufmmhbrr"
+
+[functions.ai-chatbot-response]
+verify_jwt = false
