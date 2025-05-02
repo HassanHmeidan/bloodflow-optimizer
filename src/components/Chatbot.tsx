@@ -185,7 +185,8 @@ export const Chatbot = () => {
           whileTap={{ scale: 0.95 }}
         >
           <Button 
-            className="h-14 w-14 rounded-full bg-bloodRed-600 shadow-lg hover:bg-bloodRed-700"
+            className="h-14 w-14 rounded-full shadow-lg flex items-center justify-center"
+            style={{ backgroundColor: '#C53030' }}
             onClick={() => setIsOpen(!isOpen)}
           >
             {isOpen ? (
@@ -207,16 +208,18 @@ export const Chatbot = () => {
             transition={{ duration: 0.2 }}
             className="fixed bottom-28 right-8 z-50 w-[340px] md:w-[380px]"
           >
-            <Card className="overflow-hidden shadow-lg border-2 border-bloodRed-100">
+            <Card className="overflow-hidden shadow-xl border border-gray-200 rounded-2xl">
               {/* Header */}
-              <div className="bg-bloodRed-600 text-white p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Bot className="h-5 w-5" />
+              <div className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-700 text-white p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/20 p-2 rounded-full">
+                    <Bot className="h-5 w-5" />
+                  </div>
                   <h3 className="font-semibold">LifeFlow Assistant</h3>
                 </div>
                 <Button 
                   variant="ghost" 
-                  className="h-8 w-8 p-0 text-white hover:bg-bloodRed-700 rounded-full"
+                  className="h-8 w-8 p-0 text-white hover:bg-white/20 rounded-full"
                   onClick={() => setIsOpen(false)}
                 >
                   <X className="h-4 w-4" />
@@ -225,7 +228,7 @@ export const Chatbot = () => {
               
               {/* Messages */}
               <ScrollArea 
-                className="h-[350px] p-4" 
+                className="h-[350px] px-4 py-3" 
                 ref={scrollRef}
               >
                 <div className="space-y-4">
@@ -236,7 +239,11 @@ export const Chatbot = () => {
                     >
                       <div className={`flex max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
                         <div className="flex-shrink-0 mt-1">
-                          <Avatar className={`h-8 w-8 ${message.role === 'user' ? 'bg-blue-100' : 'bg-bloodRed-100'}`}>
+                          <Avatar className={`h-8 w-8 ${
+                            message.role === 'user' 
+                              ? 'bg-blue-100' 
+                              : 'bg-bloodRed-100'
+                          }`}>
                             {message.role === 'user' ? (
                               <User className="h-4 w-4 text-blue-600" />
                             ) : (
@@ -247,8 +254,8 @@ export const Chatbot = () => {
                         <div 
                           className={`mx-2 rounded-lg p-3 ${
                             message.role === 'user' 
-                              ? 'bg-blue-500 text-white rounded-tr-none' 
-                              : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-none shadow-sm' 
+                              : 'bg-gray-100 text-gray-800 rounded-tl-none shadow-sm'
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
@@ -269,7 +276,11 @@ export const Chatbot = () => {
                           </Avatar>
                         </div>
                         <div className="mx-2 rounded-lg p-3 bg-gray-100 text-gray-800">
-                          <Loader2 className="h-5 w-5 animate-spin text-bloodRed-500" />
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-bloodRed-400 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-bloodRed-400 rounded-full animate-pulse delay-150"></div>
+                            <div className="w-2 h-2 bg-bloodRed-400 rounded-full animate-pulse delay-300"></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -279,27 +290,27 @@ export const Chatbot = () => {
               
               {/* Suggested Questions */}
               {showSuggestions && messages.length < 3 && (
-                <div className="px-4 pb-3">
-                  <p className="text-xs text-gray-500 mb-2">Suggested questions:</p>
-                  <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-                    <TabsList className="w-full mb-2 h-8">
-                      <TabsTrigger value="donation" className="text-xs h-7">
+                <div className="px-4 pb-3 border-t border-gray-100 pt-2">
+                  <p className="text-xs text-gray-500 mb-2 font-medium">Suggested questions:</p>
+                  <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+                    <TabsList className="w-full mb-2 h-8 bg-gray-100 p-1">
+                      <TabsTrigger value="donation" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         Donation
                       </TabsTrigger>
-                      <TabsTrigger value="medical" className="text-xs h-7">
+                      <TabsTrigger value="medical" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         Medical
                       </TabsTrigger>
-                      <TabsTrigger value="logistics" className="text-xs h-7">
+                      <TabsTrigger value="logistics" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         Logistics
                       </TabsTrigger>
-                      <TabsTrigger value="about" className="text-xs h-7">
+                      <TabsTrigger value="about" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         About
                       </TabsTrigger>
                     </TabsList>
                     
                     {isLoadingSuggestions ? (
                       <div className="flex justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin text-bloodRed-500" />
                       </div>
                     ) : (
                       <>
@@ -312,7 +323,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1 font-normal truncate"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -329,7 +340,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1 font-normal truncate"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -346,7 +357,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1 font-normal truncate"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -363,7 +374,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1 font-normal truncate"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -378,20 +389,21 @@ export const Chatbot = () => {
               )}
               
               {/* Input area */}
-              <div className="p-4 border-t">
-                <div className="flex space-x-2">
+              <div className="p-3 border-t border-gray-100">
+                <div className="flex space-x-2 bg-gray-50 rounded-lg p-1">
                   <Input
                     placeholder="Type your message..."
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyPress}
                     disabled={isLoading}
-                    className="flex-1"
+                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
                   />
                   <Button 
                     onClick={() => handleSendMessage(inputValue)}
                     disabled={!inputValue.trim() || isLoading}
-                    className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                    size="sm"
+                    className="bg-bloodRed-600 hover:bg-bloodRed-700 text-white rounded-md"
                   >
                     <SendIcon className="h-4 w-4" />
                   </Button>
@@ -400,7 +412,7 @@ export const Chatbot = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-gray-500 hover:text-gray-700"
+                    className="text-xs text-gray-500 hover:text-gray-700 h-6 px-2"
                     onClick={() => setShowSuggestions(!showSuggestions)}
                   >
                     {showSuggestions ? "Hide suggestions" : "Show suggestions"}
