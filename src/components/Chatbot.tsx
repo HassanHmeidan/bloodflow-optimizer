@@ -33,7 +33,7 @@ export const Chatbot = () => {
   const [activeCategory, setActiveCategory] = useState<string>('donation');
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
+  
   // Fetch initial chatbot data only once
   const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(true);
@@ -125,28 +125,24 @@ export const Chatbot = () => {
       
       if (error) throw error;
       
-      // Extract the response text
+      // Extract the response text and navigation path
       const responseText = data?.response || 'Sorry, I could not process your request at this time.';
-      
-      // Check for navigation commands in the response
-      const navigateMatch = responseText.match(/\[NAVIGATE:(\/[^\]]+)\]/);
-      const cleanResponse = responseText.replace(/\[NAVIGATE:[^\]]+\]/g, '');
+      const navigatePath = data?.navigate;
       
       // Add bot message
       const botMessage = {
         id: `bot-${Date.now()}`,
         role: 'bot' as const,
-        content: cleanResponse,
+        content: responseText,
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, botMessage]);
       
       // Handle navigation if present
-      if (navigateMatch && navigateMatch[1]) {
-        const path = navigateMatch[1];
+      if (navigatePath) {
         setTimeout(() => {
-          navigate(path);
+          navigate(navigatePath);
         }, 1000);
       }
     } catch (error) {
@@ -186,13 +182,16 @@ export const Chatbot = () => {
         >
           <Button 
             className="h-14 w-14 rounded-full shadow-lg flex items-center justify-center"
-            style={{ backgroundColor: '#C53030' }}
+            style={{ 
+              background: 'linear-gradient(135deg, #C53030 0%, #822727 100%)',
+              boxShadow: '0 4px 14px rgba(197, 48, 48, 0.4)'
+            }}
             onClick={() => setIsOpen(!isOpen)}
           >
             {isOpen ? (
-              <X className="h-6 w-6" />
+              <X className="h-6 w-6 text-white" />
             ) : (
-              <MessageCircle className="h-6 w-6" />
+              <MessageCircle className="h-6 w-6 text-white" />
             )}
           </Button>
         </motion.div>
@@ -293,17 +292,17 @@ export const Chatbot = () => {
                 <div className="px-4 pb-3 border-t border-gray-100 pt-2">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Suggested questions:</p>
                   <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
-                    <TabsList className="w-full mb-2 h-8 bg-gray-100 p-1">
-                      <TabsTrigger value="donation" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                    <TabsList className="w-full mb-2 h-8 bg-gray-100 p-1 rounded-lg">
+                      <TabsTrigger value="donation" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded">
                         Donation
                       </TabsTrigger>
-                      <TabsTrigger value="medical" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                      <TabsTrigger value="medical" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded">
                         Medical
                       </TabsTrigger>
-                      <TabsTrigger value="logistics" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                      <TabsTrigger value="logistics" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded">
                         Logistics
                       </TabsTrigger>
-                      <TabsTrigger value="about" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                      <TabsTrigger value="about" className="text-xs h-6 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded">
                         About
                       </TabsTrigger>
                     </TabsList>
@@ -323,7 +322,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600 rounded"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -340,7 +339,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600 rounded"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -357,7 +356,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600 rounded"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -374,7 +373,7 @@ export const Chatbot = () => {
                                 <Button 
                                   key={i}
                                   variant="outline"
-                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600"
+                                  className="text-xs justify-start w-full h-auto py-1.5 px-3 font-normal truncate border-gray-200 hover:bg-gray-50 hover:text-bloodRed-600 rounded"
                                   onClick={() => handleSuggestedQuestion(q.text)}
                                 >
                                   {q.text}
@@ -403,7 +402,7 @@ export const Chatbot = () => {
                     onClick={() => handleSendMessage(inputValue)}
                     disabled={!inputValue.trim() || isLoading}
                     size="sm"
-                    className="bg-bloodRed-600 hover:bg-bloodRed-700 text-white rounded-md"
+                    className="bg-gradient-to-r from-bloodRed-600 to-bloodRed-700 hover:from-bloodRed-700 hover:to-bloodRed-800 text-white rounded-md"
                   >
                     <SendIcon className="h-4 w-4" />
                   </Button>
