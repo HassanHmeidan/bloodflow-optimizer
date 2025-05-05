@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +20,15 @@ import {
 import { supabase } from '@/lib/supabase';
 
 // Type definitions
+type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
 interface BloodRequest {
   id: string;
   hospital: string;
   hospital_id?: string;
   date: string; 
   request_date?: string;
-  blood_type: string;
+  blood_type: BloodType;
   units: number;
   urgency: 'normal' | 'urgent' | 'critical';
   priority?: string;
@@ -39,7 +40,7 @@ interface BloodRequest {
 }
 
 export const BloodRequestForm = () => {
-  const [bloodType, setBloodType] = useState('');
+  const [bloodType, setBloodType] = useState<BloodType | ''>('');
   const [units, setUnits] = useState('');
   const [urgency, setUrgency] = useState('normal');
   const [notes, setNotes] = useState('');
@@ -100,7 +101,7 @@ export const BloodRequestForm = () => {
         .from('blood_requests')
         .insert({
           hospital_id: hospitalId || null,
-          blood_type: bloodType as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
+          blood_type: bloodType,
           units: parseInt(units),
           priority,
           notes,
@@ -165,12 +166,16 @@ export const BloodRequestForm = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="bloodType">Blood Type <span className="text-red-500">*</span></Label>
-              <Select value={bloodType} onValueChange={setBloodType} required>
+              <Select 
+                value={bloodType} 
+                onValueChange={(value: BloodType) => setBloodType(value)} 
+                required
+              >
                 <SelectTrigger id="bloodType">
                   <SelectValue placeholder="Select blood type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
+                  {(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as BloodType[]).map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
                 </SelectContent>
@@ -291,7 +296,7 @@ export const BloodRequestManagement = () => {
             hospital_id: req.hospital_id,
             date: new Date(req.request_date).toISOString().split('T')[0],
             request_date: req.request_date,
-            blood_type: req.blood_type,
+            blood_type: req.blood_type as BloodType,
             units: req.units,
             urgency: req.priority as 'normal' | 'urgent' | 'critical',
             priority: req.priority,

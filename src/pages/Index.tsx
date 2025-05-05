@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { BloodInventory } from "@/components/BloodInventory";
+import BloodInventory from "@/components/BloodInventory";
 import { 
   Heart, 
   Search, 

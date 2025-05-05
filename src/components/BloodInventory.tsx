@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +42,11 @@ interface InventoryItem {
   locationName?: string;
 }
 
-const BloodInventory = () => {
+interface BloodInventoryProps {
+  simpleView?: boolean;
+}
+
+export const BloodInventory = ({ simpleView = false }: BloodInventoryProps) => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterBloodType, setFilterBloodType] = useState<string | null>(null);
@@ -215,6 +218,31 @@ const BloodInventory = () => {
   
   // Get unique locations for filter
   const uniqueLocations = Array.from(new Set(inventoryData.map(item => item.locationName))).filter(Boolean) as string[];
+
+  // If simpleView is true, render a simplified version
+  if (simpleView) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Object.entries(totalByBloodType).map(([bloodType, units]) => (
+          <Card key={bloodType}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Blood Type {bloodType}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{units} units</div>
+              <Progress 
+                className="h-2 mt-2" 
+                value={(units / (totalUnits || 1)) * 100} 
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.round((units / (totalUnits || 1)) * 100)}% of total inventory
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
