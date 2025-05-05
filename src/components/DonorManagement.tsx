@@ -23,9 +23,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Donor {
-  id: number;
+  id: string;
   name: string;
   email: string;
   bloodType: string;
@@ -45,6 +47,7 @@ export const DonorManagement = () => {
   const [isAddingDonor, setIsAddingDonor] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState<Donor | null>(null);
   const [showDonorDetails, setShowDonorDetails] = useState(false);
+  const queryClient = useQueryClient();
 
   const [newDonor, setNewDonor] = useState({
     name: '',
@@ -55,52 +58,124 @@ export const DonorManagement = () => {
     age: '',
   });
   
-  // Get admin data from localStorage to share between components
-  const [donors, setDonors] = useState<Donor[]>(() => {
-    const storedDonors = localStorage.getItem('adminDonors');
-    if (storedDonors) {
-      return JSON.parse(storedDonors);
+  // Fetch donors from Supabase
+  const { data: donors = [], isLoading } = useQuery({
+    queryKey: ['donors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('donor_profiles')
+        .select(`
+          id,
+          user_id,
+          blood_type,
+          last_donation_date,
+          eligible_to_donate,
+          medical_history,
+          profiles:user_id (
+            first_name,
+            last_name,
+            email,
+            phone
+          )
+        `);
+        
+      if (error) {
+        console.error("Error fetching donors:", error);
+        toast.error("Failed to load donor data");
+        return [];
+      }
+      
+      // Transform the data into the expected format
+      return data.map(donor => ({
+        id: donor.id,
+        name: donor.profiles ? `${donor.profiles.first_name || ''} ${donor.profiles.last_name || ''}`.trim() : 'Unknown',
+        email: donor.profiles?.email || 'N/A',
+        bloodType: donor.blood_type,
+        status: donor.eligible_to_donate ? 'active' : 'inactive',
+        lastDonation: donor.last_donation_date ? new Date(donor.last_donation_date).toISOString().split('T')[0] : 'N/A',
+        phone: donor.profiles?.phone || 'N/A',
+        address: 'N/A', // Not stored in the current schema
+        age: donor.medical_history?.age || undefined,
+        medicalHistory: JSON.stringify(donor.medical_history) || 'None'
+      }));
     }
-    
-    // Default donors if none exist in localStorage
-    return [
-      { id: 1, name: "John Smith", email: "john@example.com", bloodType: "O+", status: "active", lastDonation: "2023-05-15", phone: "555-123-4567", address: "123 Main St", age: 35 },
-      { id: 2, name: "Maria Garcia", email: "maria@example.com", bloodType: "AB+", status: "pending", lastDonation: "2023-06-22", phone: "555-234-5678", address: "456 Oak Ave", age: 29 },
-      { id: 3, name: "David Lee", email: "david@example.com", bloodType: "B-", status: "pending", lastDonation: "2023-04-10", phone: "555-345-6789", address: "789 Pine Rd", age: 42 },
-      { id: 4, name: "Sarah Johnson", email: "sarah@example.com", bloodType: "A+", status: "active", lastDonation: "2023-06-05", phone: "555-456-7890", address: "101 Cedar Ln", age: 31 },
-      { id: 5, name: "Michael Brown", email: "michael@example.com", bloodType: "O-", status: "inactive", lastDonation: "2023-03-20", phone: "555-567-8901", address: "202 Elm St", age: 47 }
-    ];
   });
 
-  // Save donors to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('adminDonors', JSON.stringify(donors));
-    
-    // Also update the admin data in localStorage for the dashboard
-    const adminData = {
-      totalDonors: donors.length,
-      totalRequests: 86,
-      pendingApprovals: donors.filter(d => d.status === 'pending').length,
-      lowStockAlerts: 3,
-      recentDonors: donors.filter(d => d.status === 'pending').slice(0, 3).map(d => ({
-        name: d.name,
-        date: d.lastDonation,
-        type: d.bloodType,
-        status: d.status
-      })),
-      recentRequests: [
-        { hospital: 'General Hospital', date: '2023-06-15', type: 'A+', units: 2, status: 'pending' },
-        { hospital: 'Children\'s Medical', date: '2023-06-14', type: 'O-', units: 5, status: 'approved' },
-      ]
-    };
-    
-    localStorage.setItem('adminData', JSON.stringify(adminData));
-  }, [donors]);
+  // Update donor status mutation
+  const updateDonorStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: 'active' | 'inactive' }) => {
+      const { error } = await supabase
+        .from('donor_profiles')
+        .update({ 
+          eligible_to_donate: status === 'active'
+        })
+        .eq('id', id);
+        
+      if (error) throw error;
+      return { id, status };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['donors'] });
+    },
+    onError: (error) => {
+      console.error("Error updating donor status:", error);
+      toast.error("Failed to update donor status");
+    }
+  });
 
-  const handleApprove = (id: number) => {
-    setDonors(donors.map(donor => 
-      donor.id === id ? { ...donor, status: 'active' } : donor
-    ));
+  // Add new donor mutation
+  const addDonor = useMutation({
+    mutationFn: async (donor: any) => {
+      // First create a profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          first_name: donor.name.split(' ')[0],
+          last_name: donor.name.split(' ').slice(1).join(' '),
+          email: donor.email,
+          phone: donor.phone || null
+        })
+        .select();
+        
+      if (profileError) throw profileError;
+      
+      // Then create donor profile
+      const { error: donorError } = await supabase
+        .from('donor_profiles')
+        .insert({
+          user_id: profileData[0].id,
+          blood_type: donor.bloodType,
+          eligible_to_donate: true,
+          medical_history: donor.age ? { age: parseInt(donor.age) } : null
+        });
+        
+      if (donorError) throw donorError;
+      
+      return donor;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['donors'] });
+      setIsAddingDonor(false);
+      toast.success("New donor added successfully");
+      
+      // Reset form
+      setNewDonor({
+        name: '',
+        email: '',
+        bloodType: '',
+        phone: '',
+        address: '',
+        age: '',
+      });
+    },
+    onError: (error) => {
+      console.error("Error adding new donor:", error);
+      toast.error("Failed to add new donor");
+    }
+  });
+
+  const handleApprove = (id: string) => {
+    updateDonorStatus.mutate({ id, status: 'active' });
     toast.success("Donor approved successfully");
     
     // Fire a notification event
@@ -113,10 +188,8 @@ export const DonorManagement = () => {
     window.dispatchEvent(event);
   };
 
-  const handleReject = (id: number) => {
-    setDonors(donors.map(donor => 
-      donor.id === id ? { ...donor, status: 'inactive' } : donor
-    ));
+  const handleReject = (id: string) => {
+    updateDonorStatus.mutate({ id, status: 'inactive' });
     toast.error("Donor rejected");
     
     // Fire a notification event
@@ -135,43 +208,7 @@ export const DonorManagement = () => {
       return;
     }
     
-    const newId = donors.length > 0 ? Math.max(...donors.map(d => d.id)) + 1 : 1;
-    
-    const donor: Donor = {
-      id: newId,
-      name: newDonor.name,
-      email: newDonor.email,
-      bloodType: newDonor.bloodType,
-      status: 'pending',
-      lastDonation: 'N/A',
-      phone: newDonor.phone,
-      address: newDonor.address,
-      age: parseInt(newDonor.age) || undefined
-    };
-    
-    setDonors([...donors, donor]);
-    setIsAddingDonor(false);
-    
-    // Reset form
-    setNewDonor({
-      name: '',
-      email: '',
-      bloodType: '',
-      phone: '',
-      address: '',
-      age: '',
-    });
-    
-    toast.success("New donor added successfully");
-    
-    // Fire a notification event
-    const event = new CustomEvent('notification', { 
-      detail: { 
-        message: `New donor ${newDonor.name} has been added`, 
-        type: 'success' 
-      } 
-    });
-    window.dispatchEvent(event);
+    addDonor.mutate(newDonor);
   };
 
   const handleViewDetails = (donor: Donor) => {
@@ -334,7 +371,13 @@ export const DonorManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDonors.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  Loading donor data...
+                </TableCell>
+              </TableRow>
+            ) : filteredDonors.length > 0 ? (
               filteredDonors.map(donor => (
                 <TableRow key={donor.id}>
                   <TableCell className="font-medium">{donor.name}</TableCell>
@@ -486,7 +529,9 @@ export const DonorManagement = () => {
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleAddDonor}>Add Donor</Button>
+            <Button onClick={handleAddDonor} disabled={addDonor.isPending}>
+              {addDonor.isPending ? "Adding..." : "Add Donor"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

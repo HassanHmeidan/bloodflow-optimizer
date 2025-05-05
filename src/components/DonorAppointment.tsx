@@ -10,36 +10,166 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Hospital, CalendarIcon, Check } from "lucide-react";
-
-const bloodCenters = [
-  "Central Blood Bank",
-  "Downtown Medical Center",
-  "University Hospital",
-  "Community Blood Center",
-  "Metro Blood Services"
-];
-
-const timeSlots = [
-  "09:00 AM", "10:00 AM", "11:00 AM", 
-  "12:00 PM", "01:00 PM", "02:00 PM", 
-  "03:00 PM", "04:00 PM", "05:00 PM"
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const DonorAppointment = () => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [location, setLocation] = useState<string>("");
   const [timeSlot, setTimeSlot] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [donorId, setDonorId] = useState<string>("");
+  const [bloodType, setBloodType] = useState<string>("");
+  const queryClient = useQueryClient();
 
-  // Load existing appointments from localStorage with user-specific key
-  useEffect(() => {
-    const userId = localStorage.getItem('authToken');
-    const savedAppointments = localStorage.getItem(`appointments_${userId}`);
-    if (savedAppointments) {
-      setAppointments(JSON.parse(savedAppointments));
+  // Fetch donation centers
+  const { data: bloodCenters = [] } = useQuery({
+    queryKey: ['donationCenters'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('donation_centers')
+        .select('id, name');
+        
+      if (error) {
+        console.error("Error fetching donation centers:", error);
+        toast.error("Failed to load donation centers");
+        return [];
+      }
+      
+      return data;
     }
-  }, []);
+  });
+
+  // Get current user and their donor profile
+  const { data: userDonorProfile, isLoading: loadingProfile } = useQuery({
+    queryKey: ['currentDonorProfile'],
+    queryFn: async () => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return null;
+      
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        return null;
+      }
+      
+      // Get donor profile
+      const { data: donorProfile, error: donorError } = await supabase
+        .from('donor_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (donorError && donorError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error("Error fetching donor profile:", donorError);
+        return null;
+      }
+      
+      setDonorId(donorProfile?.id || '');
+      setBloodType(donorProfile?.blood_type || '');
+      
+      return {
+        userId: user.id,
+        profile,
+        donorProfile
+      };
+    }
+  });
+
+  // Fetch existing appointments for this user
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['appointments', userDonorProfile?.donorProfile?.id],
+    enabled: !!userDonorProfile?.donorProfile?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('donation_appointments')
+        .select(`
+          id,
+          appointment_date,
+          time_slot,
+          status,
+          centers:center_id (
+            name
+          )
+        `)
+        .eq('donor_id', userDonorProfile.donorProfile.id)
+        .order('appointment_date', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching appointments:", error);
+        toast.error("Failed to load appointments");
+        return [];
+      }
+      
+      return data.map(appt => ({
+        id: appt.id,
+        date: new Date(appt.appointment_date).toISOString().split('T')[0],
+        formattedDate: format(new Date(appt.appointment_date), "MMMM d, yyyy"),
+        location: appt.centers?.name || 'Unknown',
+        timeSlot: appt.time_slot,
+        status: appt.status
+      }));
+    }
+  });
+
+  // Create appointment mutation
+  const createAppointment = useMutation({
+    mutationFn: async () => {
+      if (!date || !location || !timeSlot || !donorId) {
+        throw new Error("Required information is missing");
+      }
+      
+      // Create appointment
+      const { data, error } = await supabase
+        .from('donation_appointments')
+        .insert({
+          donor_id: donorId,
+          center_id: location,
+          appointment_date: date.toISOString(),
+          time_slot: timeSlot,
+          status: 'scheduled'
+        })
+        .select();
+        
+      if (error) throw error;
+      
+      return data[0];
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      
+      // Reset form
+      setDate(undefined);
+      setLocation("");
+      setTimeSlot("");
+      
+      // Show success message
+      toast.success("Appointment scheduled successfully!");
+      
+      // Dispatch a custom event for the Dashboard to reload appointments
+      window.dispatchEvent(new CustomEvent('appointmentScheduled', { 
+        detail: {
+          id: data.id,
+          date: format(new Date(data.appointment_date), "yyyy-MM-dd"),
+          formattedDate: format(new Date(data.appointment_date), "MMMM d, yyyy"),
+          location: bloodCenters.find(c => c.id === data.center_id)?.name,
+          timeSlot: data.time_slot,
+          status: data.status
+        }
+      }));
+    },
+    onError: (error) => {
+      console.error("Error scheduling appointment:", error);
+      toast.error("Failed to schedule appointment");
+    }
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,52 +181,22 @@ export const DonorAppointment = () => {
       return;
     }
     
-    setLoading(true);
+    if (!donorId) {
+      toast.error("You must be registered as a donor", {
+        description: "Please complete your donor profile first."
+      });
+      return;
+    }
     
-    // Simulate an API call to our Python backend
-    setTimeout(() => {
-      try {
-        const userId = localStorage.getItem('authToken');
-        
-        // Create new appointment object
-        const newAppointment = {
-          id: Date.now(),
-          date: format(date, "yyyy-MM-dd"),
-          formattedDate: format(date, "MMMM d, yyyy"),
-          location,
-          timeSlot,
-          status: 'confirmed'
-        };
-        
-        // Update state and localStorage with user-specific key
-        const updatedAppointments = [...appointments, newAppointment];
-        setAppointments(updatedAppointments);
-        localStorage.setItem(`appointments_${userId}`, JSON.stringify(updatedAppointments));
-        
-        // Show success message
-        toast.success("Appointment scheduled successfully!", {
-          description: `Your appointment is set for ${format(date, "MMMM d, yyyy")} at ${timeSlot}, ${location}.`
-        });
-        
-        // Reset form
-        setDate(undefined);
-        setLocation("");
-        setTimeSlot("");
-        
-        // Dispatch a custom event for the Dashboard to reload appointments
-        window.dispatchEvent(new CustomEvent('appointmentScheduled', { 
-          detail: newAppointment 
-        }));
-      } catch (error) {
-        console.error("Error scheduling appointment:", error);
-        toast.error("Failed to schedule appointment", {
-          description: "An unexpected error occurred. Please try again."
-        });
-      } finally {
-        setLoading(false);
-      }
-    }, 1500); // Simulate network delay
+    createAppointment.mutate();
   };
+
+  // Generate time slots
+  const timeSlots = [
+    "09:00 AM", "10:00 AM", "11:00 AM", 
+    "12:00 PM", "01:00 PM", "02:00 PM", 
+    "03:00 PM", "04:00 PM", "05:00 PM"
+  ];
   
   return (
     <Card>
@@ -114,10 +214,10 @@ export const DonorAppointment = () => {
               </SelectTrigger>
               <SelectContent>
                 {bloodCenters.map((center) => (
-                  <SelectItem key={center} value={center}>
+                  <SelectItem key={center.id} value={center.id}>
                     <div className="flex items-center">
                       <Hospital className="h-4 w-4 mr-2" />
-                      {center}
+                      {center.name}
                     </div>
                   </SelectItem>
                 ))}
@@ -178,9 +278,9 @@ export const DonorAppointment = () => {
           <Button 
             type="submit" 
             className="w-full bg-bloodRed-600 hover:bg-bloodRed-700 mt-4"
-            disabled={loading || !date || !location || !timeSlot}
+            disabled={createAppointment.isPending || !date || !location || !timeSlot || !donorId}
           >
-            {loading ? (
+            {createAppointment.isPending ? (
               <>
                 <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
