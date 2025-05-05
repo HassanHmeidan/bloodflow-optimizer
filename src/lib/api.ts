@@ -1,8 +1,11 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from '@/types/supabase';
+
+type BloodType = Database['public']['Enums']['blood_type']; 
 
 // Function to record a donation after an appointment is completed
-export async function recordDonation(donorId: string, bloodType: string, centerId: string, appointmentId?: string) {
+export async function recordDonation(donorId: string, bloodType: BloodType, centerId: string, appointmentId?: string) {
   try {
     // Calculate expiry date (42 days from now)
     const expiryDate = new Date();
@@ -13,7 +16,7 @@ export async function recordDonation(donorId: string, bloodType: string, centerI
       .from('blood_inventory')
       .insert({
         donor_id: donorId,
-        blood_type: bloodType as any,
+        blood_type: bloodType,
         units: 1, // Standard donation is typically 1 unit
         donation_date: new Date().toISOString(),
         expiry_date: expiryDate.toISOString(),
@@ -68,20 +71,61 @@ export async function getBloodInventory() {
         donation_date,
         expiry_date,
         status,
-        donors:donor_id (
-          profiles:user_id (
-            first_name,
-            last_name
-          )
-        ),
-        centers:location_id (
-          name
-        )
+        location_id,
+        donor_id
       `)
       .eq('status', 'available')
       .order('expiry_date', { ascending: true });
       
     if (error) throw error;
+    
+    // Fetch donor names separately
+    const donorNames: Record<string, string> = {};
+    if (data.length > 0) {
+      const donorIds = [...new Set(data.filter(item => item.donor_id).map(item => item.donor_id))];
+      
+      for (const donorId of donorIds) {
+        if (!donorId) continue;
+        
+        const { data: donorData } = await supabase
+          .from('donor_profiles')
+          .select('user_id')
+          .eq('id', donorId)
+          .single();
+        
+        if (donorData?.user_id) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', donorData.user_id)
+            .single();
+            
+          if (profileData) {
+            donorNames[donorId] = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Unknown';
+          }
+        }
+      }
+    }
+    
+    // Fetch location names
+    const locationNames: Record<string, string> = {};
+    if (data.length > 0) {
+      const locationIds = [...new Set(data.filter(item => item.location_id).map(item => item.location_id))];
+      
+      for (const locationId of locationIds) {
+        if (!locationId) continue;
+        
+        const { data: locationData } = await supabase
+          .from('donation_centers')
+          .select('name')
+          .eq('id', locationId)
+          .single();
+          
+        if (locationData) {
+          locationNames[locationId] = locationData.name;
+        }
+      }
+    }
     
     // Transform the data to a more usable format
     const inventory = data.map(item => ({
@@ -91,8 +135,8 @@ export async function getBloodInventory() {
       donationDate: new Date(item.donation_date).toISOString().split('T')[0],
       expiryDate: new Date(item.expiry_date).toISOString().split('T')[0],
       status: item.status,
-      donor: item.donors?.profiles ? `${item.donors.profiles.first_name || ''} ${item.donors.profiles.last_name || ''}`.trim() : 'Unknown',
-      location: item.centers?.name || 'Unknown'
+      donor: item.donor_id ? donorNames[item.donor_id] || 'Unknown' : 'Unknown',
+      location: item.location_id ? locationNames[item.location_id] || 'Unknown' : 'Unknown'
     }));
     
     // Aggregate by blood type
@@ -165,22 +209,32 @@ export async function getStockAlerts() {
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
     
+    // Query for expiring inventory
     const { data: expiringData, error: expiringError } = await supabase
       .from('blood_inventory')
-      .select('blood_type, count')
+      .select('blood_type')
       .eq('status', 'available')
       .lt('expiry_date', nextWeek.toISOString())
-      .gt('expiry_date', today.toISOString())
-      .group('blood_type');
+      .gt('expiry_date', today.toISOString());
       
     if (expiringError) throw expiringError;
     
+    // Count expiring units by blood type
+    const expiringCounts: Record<string, number> = {};
     for (const item of expiringData) {
+      if (!expiringCounts[item.blood_type]) {
+        expiringCounts[item.blood_type] = 0;
+      }
+      expiringCounts[item.blood_type]++;
+    }
+    
+    // Add expiring alerts
+    for (const [bloodType, count] of Object.entries(expiringCounts)) {
       alerts.push({
         type: 'expiring',
-        bloodType: item.blood_type,
-        count: item.count,
-        message: `${item.count} units of ${item.blood_type} blood will expire within the next week`
+        bloodType: bloodType as BloodType,
+        count,
+        message: `${count} units of ${bloodType} blood will expire within the next week`
       });
     }
     
@@ -192,19 +246,18 @@ export async function getStockAlerts() {
 }
 
 // Function to update predictive demand based on new donations or requests
-async function updatePredictiveDemand(bloodType: string) {
+async function updatePredictiveDemand(bloodType: BloodType) {
   try {
     // Get current inventory
     const { data: inventoryData, error: inventoryError } = await supabase
       .from('blood_inventory')
-      .select('blood_type, count')
+      .select('id')
       .eq('status', 'available')
-      .eq('blood_type', bloodType)
-      .count();
+      .eq('blood_type', bloodType);
       
     if (inventoryError) throw inventoryError;
     
-    const currentStock = inventoryData[0]?.count || 0;
+    const currentStock = inventoryData.length;
     
     // Get current requests
     const { data: requestsData, error: requestsError } = await supabase
