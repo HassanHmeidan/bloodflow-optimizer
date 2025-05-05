@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +25,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+// Update the status type to match what's actually in the database
+type DonorStatus = 'active' | 'inactive' | 'pending';
+
 interface Donor {
   id: string;
   name: string;
   email: string;
   bloodType: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
-  status: 'active' | 'pending' | 'inactive';
+  status: DonorStatus;
   lastDonation: string;
   phone?: string;
   address?: string;
@@ -101,12 +103,16 @@ export const DonorManagement = () => {
             age = typeof history.age === 'number' ? history.age : undefined;
           }
           
+          // Set the status based on eligible_to_donate, using the correct status type
+          // Map eligible_to_donate to 'active' or 'inactive' - no longer using 'pending'
+          const status: DonorStatus = donor.eligible_to_donate ? 'active' : 'inactive';
+          
           return {
             id: donor.id,
             name: name,
             email: profileData?.email || 'N/A',
             bloodType: donor.blood_type as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
-            status: donor.eligible_to_donate ? 'active' as const : 'inactive' as const,
+            status: status,
             lastDonation: donor.last_donation_date ? new Date(donor.last_donation_date).toISOString().split('T')[0] : 'N/A',
             phone: profileData?.phone || 'N/A',
             address: 'N/A', // Not stored in the current schema
@@ -413,9 +419,9 @@ export const DonorManagement = () => {
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       donor.status === 'active' 
                         ? 'bg-green-50 text-green-700' 
-                        : donor.status === 'pending'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-red-50 text-red-700'
+                        : donor.status === 'inactive'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-amber-50 text-amber-700'
                     }`}>
                       {donor.status.charAt(0).toUpperCase() + donor.status.slice(1)}
                     </span>
@@ -423,27 +429,23 @@ export const DonorManagement = () => {
                   <TableCell>{donor.lastDonation}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-1">
-                      {/* Only render these buttons if status is 'pending' - fixing the type comparison error */}
-                      {donor.status === 'pending' && (
-                        <>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
-                            onClick={() => handleApprove(donor.id)}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => handleReject(donor.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
+                      {/* Add approve/reject buttons for all donors, regardless of status */}
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
+                        onClick={() => handleApprove(donor.id)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => handleReject(donor.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                       <Button 
                         size="sm" 
                         variant="outline" 
@@ -592,9 +594,9 @@ export const DonorManagement = () => {
                       <p className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
                         selectedDonor.status === 'active' 
                           ? 'bg-green-50 text-green-700' 
-                          : selectedDonor.status === 'pending'
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-red-50 text-red-700'
+                          : selectedDonor.status === 'inactive'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-amber-50 text-amber-700'
                       }`}>
                         {selectedDonor.status.charAt(0).toUpperCase() + selectedDonor.status.slice(1)}
                       </p>
