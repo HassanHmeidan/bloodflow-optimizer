@@ -35,6 +35,7 @@ serve(async (req) => {
     const { data: inventoryData, error: inventoryError } = await supabase
       .from('blood_inventory')
       .select('blood_type, units')
+      .eq('status', 'available')
       .order('blood_type')
 
     if (inventoryError) {
@@ -63,19 +64,19 @@ serve(async (req) => {
     }
 
     // Format inventory data for the AI context
-    const inventoryContext = inventoryData ? 
+    const inventoryContext = inventoryData && inventoryData.length > 0 ? 
       `Current blood inventory status:\n${inventoryData.map(item => 
         `${item.blood_type}: ${item.units} units`).join('\n')}` : 
       'Blood inventory data not available';
 
     // Format donation center data for the AI context
-    const centerContext = centerData ? 
+    const centerContext = centerData && centerData.length > 0 ? 
       `Available donation centers:\n${centerData.map(center => 
         `${center.name} - ${center.city}, ${center.address}`).join('\n')}` : 
       'Donation center data not available';
 
     // Format demand data for the AI context
-    const demandContext = demandData ? 
+    const demandContext = demandData && demandData.length > 0 ? 
       `Current blood demand priorities:\n${demandData.map(item => 
         `${item.blood_type}: ${item.urgency_level} urgency`).join('\n')}` : 
       'Demand data not available';

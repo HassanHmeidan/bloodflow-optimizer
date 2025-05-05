@@ -100,7 +100,7 @@ export const BloodRequestForm = () => {
         .from('blood_requests')
         .insert({
           hospital_id: hospitalId || null,
-          blood_type: bloodType,
+          blood_type: bloodType as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
           units: parseInt(units),
           priority,
           notes,

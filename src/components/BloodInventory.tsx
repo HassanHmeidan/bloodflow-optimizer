@@ -1,155 +1,120 @@
 
 import { useState, useEffect } from 'react';
-import { CircleX, CircleCheck, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { LocationFilter } from './LocationFilter';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { 
+  AlertCircle, 
+  BarChart3, 
+  Calendar, 
+  Clock, 
+  Droplet, 
+  FileText, 
+  Filter, 
+  Plus, 
+  Search 
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
 
-// Define the type for blood stock data
 type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
-interface BloodStockData {
+interface InventoryItem {
+  id: string;
   bloodType: BloodType;
   units: number;
-  capacity: number;
-  location?: string;
-  expiryDate?: string;
-  id?: string;
+  expiryDate: string;
+  donationDate: string;
+  status: 'available' | 'reserved' | 'used' | 'expired';
+  locationName?: string;
 }
 
-interface LocationData {
-  id: string;
-  name: string;
-  type: 'Hospital' | 'Blood Bank' | 'Storage';
-  coordinates?: [number, number]; // [longitude, latitude]
-  address: string;
-  bloodStock: {
-    [key: string]: {
-      units: number;
-      capacity: number;
-    };
-  };
-}
-
-interface BloodInventoryProps {
-  simpleView?: boolean;
-  onInventoryChange?: () => void;
-}
-
-export const BloodInventory = ({ simpleView = false, onInventoryChange }: BloodInventoryProps) => {
-  const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
-  const [filteredStockData, setFilteredStockData] = useState<BloodStockData[]>([]);
-  const [lowStockAlerts, setLowStockAlerts] = useState<BloodStockData[]>([]);
-  const [expiryAlerts, setExpiryAlerts] = useState<BloodStockData[]>([]);
-  const [mapError, setMapError] = useState<boolean>(false);
+const BloodInventory = () => {
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterBloodType, setFilterBloodType] = useState<string | null>(null);
+  const [filterLocation, setFilterLocation] = useState<string | null>(null);
+  const [showAddInventoryDialog, setShowAddInventoryDialog] = useState<boolean>(false);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [locations, setLocations] = useState<{ id: string, name: string }[]>([]);
+  
+  // Form state for adding new inventory
+  const [newInventory, setNewInventory] = useState({
+    bloodType: 'A+' as BloodType,
+    units: 1,
+    expiryDate: '',
+    donationDate: new Date().toISOString().split('T')[0],
+    locationId: '',
+    status: 'available'
+  });
 
-  // Handle map errors
-  const handleMapError = (error: Error) => {
-    console.error("Map loading error:", error);
-    setMapError(true);
-    if (!simpleView) {
-      toast({
-        title: "Map Loading Error",
-        description: "Could not load location map. Using simplified location view instead."
-      });
-    }
-  };
-
-  // Function to fetch inventory data
-  const fetchInventoryData = async () => {
-    setLoading(true);
-    try {
-      // Get blood inventory data from database
-      const { data, error } = await supabase
-        .from('blood_inventory')
-        .select('*')
-        .eq('status', 'available');
-      
-      if (error) throw error;
-      
-      // Transform data to the format needed
-      const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-      
-      // Group by blood type and sum units
-      const stockByType: Record<string, { units: number, items: any[] }> = {};
-      
-      bloodTypes.forEach(type => {
-        stockByType[type] = { units: 0, items: [] };
-      });
-      
-      (data || []).forEach(item => {
-        const type = item.blood_type as BloodType;
-        if (!stockByType[type]) {
-          stockByType[type] = { units: 0, items: [] };
-        }
-        stockByType[type].units += item.units;
-        stockByType[type].items.push(item);
-      });
-      
-      // Convert to array format for rendering
-      const stockData: BloodStockData[] = bloodTypes.map(type => {
-        // Estimate capacity as 300% of current units (for UI purposes)
-        // In a real app, you'd have set capacities per blood type
-        const capacity = Math.max(stockByType[type]?.units * 3 || 300, 300);
-        
-        return {
-          bloodType: type,
-          units: stockByType[type]?.units || 0,
-          capacity,
-          expiryDate: stockByType[type]?.items[0]?.expiry_date
-        };
-      });
-      
-      if (!selectedLocation) {
-        setFilteredStockData(stockData);
-        
-        // Calculate alerts - only when critical (below 15%)
-        setLowStockAlerts(stockData.filter(item => (item.units / item.capacity) < 0.15));
-        
-        // Only show items expiring in the next 3 days for critical alerts
-        const today = new Date();
-        const threeDaysLater = new Date();
-        threeDaysLater.setDate(today.getDate() + 3);
-        
-        setExpiryAlerts(stockData.filter(item => {
-          if (!item.expiryDate) return false;
-          const expiryDate = new Date(item.expiryDate);
-          return expiryDate <= threeDaysLater;
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching inventory data:', error);
-      if (!simpleView) {
-        toast.error('Failed to load inventory data');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch initial data
+  // Fetch inventory data from the database
   useEffect(() => {
+    const fetchInventoryData = async () => {
+      setLoading(true);
+      try {
+        // Fetch locations first
+        const { data: locationsData, error: locationsError } = await supabase
+          .from('donation_centers')
+          .select('id, name');
+        
+        if (locationsError) throw locationsError;
+        setLocations(locationsData || []);
+        
+        // Fetch blood inventory
+        const { data, error } = await supabase
+          .from('blood_inventory')
+          .select('*')
+          .eq('status', 'available')
+          .order('expiry_date');
+        
+        if (error) throw error;
+        
+        // Map data to our format
+        const mappedData = data.map(item => ({
+          id: item.id,
+          bloodType: item.blood_type as BloodType,
+          units: item.units,
+          expiryDate: item.expiry_date.split('T')[0],
+          donationDate: item.donation_date ? item.donation_date.split('T')[0] : 'N/A',
+          status: item.status as 'available' | 'reserved' | 'used' | 'expired',
+          locationName: item.location_name || 'Central Blood Bank'
+        }));
+        
+        setInventoryData(mappedData);
+      } catch (error) {
+        console.error('Error fetching blood inventory:', error);
+        toast.error('Failed to load blood inventory data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
     fetchInventoryData();
     
-    // Set up a real-time subscription to blood_inventory changes
+    // Set up real-time subscription for updates
     const channel = supabase
       .channel('blood-inventory-changes')
       .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'blood_inventory' 
-        }, 
+        { event: '*', schema: 'public', table: 'blood_inventory' }, 
         () => {
           fetchInventoryData();
-          if (onInventoryChange) {
-            onInventoryChange();
-          }
         }
       )
       .subscribe();
@@ -157,202 +122,499 @@ export const BloodInventory = ({ simpleView = false, onInventoryChange }: BloodI
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [onInventoryChange]);
+  }, []);
 
-  // Update filtered stock data when a location is selected
-  useEffect(() => {
+  // Function to handle adding new inventory
+  const handleAddInventory = async () => {
     try {
-      if (selectedLocation) {
-        // Convert the location's blood stock to the format expected by the component
-        const locationStock = Object.entries(selectedLocation.bloodStock).map(([bloodType, data]) => ({
-          bloodType: bloodType as BloodType,
-          units: data.units,
-          capacity: data.capacity,
-          location: selectedLocation.name
-        }));
-        
-        setFilteredStockData(locationStock);
-        
-        // Calculate alerts - only when critical (below 15%)
-        setLowStockAlerts(locationStock.filter(item => (item.units / item.capacity) < 0.15));
-        
-        // Only show items expiring in the next 3 days for critical alerts
-        const today = new Date();
-        const threeDaysLater = new Date();
-        threeDaysLater.setDate(today.getDate() + 3);
-        
-        setExpiryAlerts(locationStock.filter(item => {
-          if (!item.expiryDate) return false;
-          const expiryDate = new Date(item.expiryDate);
-          return expiryDate <= threeDaysLater;
-        }));
+      if (!newInventory.expiryDate) {
+        toast.error('Please provide an expiry date');
+        return;
       }
+      
+      // Validate
+      if (newInventory.units < 1) {
+        toast.error('Units must be at least 1');
+        return;
+      }
+      
+      // Calculate automatic expiry date if not provided (42 days from donation)
+      let expiryDate = newInventory.expiryDate;
+      if (!expiryDate) {
+        const donationDate = new Date(newInventory.donationDate);
+        donationDate.setDate(donationDate.getDate() + 42); // Blood typically expires in 42 days
+        expiryDate = donationDate.toISOString().split('T')[0];
+      }
+      
+      const { error } = await supabase
+        .from('blood_inventory')
+        .insert({
+          blood_type: newInventory.bloodType,
+          units: newInventory.units,
+          expiry_date: new Date(expiryDate).toISOString(),
+          donation_date: new Date(newInventory.donationDate).toISOString(),
+          location_id: newInventory.locationId || null,
+          location_name: newInventory.locationId ? 
+            locations.find(loc => loc.id === newInventory.locationId)?.name : 
+            'Central Blood Bank',
+          status: 'available'
+        });
+      
+      if (error) throw error;
+      
+      toast.success('Blood inventory added successfully');
+      setShowAddInventoryDialog(false);
+      
+      // Reset form
+      setNewInventory({
+        bloodType: 'A+' as BloodType,
+        units: 1,
+        expiryDate: '',
+        donationDate: new Date().toISOString().split('T')[0],
+        locationId: '',
+        status: 'available'
+      });
     } catch (error) {
-      console.error("Error updating stock data:", error);
+      console.error('Error adding blood inventory:', error);
+      toast.error('Failed to add blood inventory');
     }
-  }, [selectedLocation]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchInventoryData();
-    setRefreshing(false);
-    toast.success('Inventory data refreshed');
   };
 
-  // Calculate status based on stock level
-  const getStockStatus = (units: number, capacity: number) => {
-    const percentage = (units / capacity) * 100;
-    if (percentage < 20) return { color: 'bg-red-500', status: 'Low', textColor: 'text-red-600' };
-    if (percentage < 50) return { color: 'bg-amber-500', status: 'Medium', textColor: 'text-amber-600' };
-    return { color: 'bg-green-500', status: 'Good', textColor: 'text-green-600' };
+  // Calculate aggregated statistics
+  const totalUnits = inventoryData.reduce((sum, item) => sum + item.units, 0);
+  const totalByBloodType: Record<BloodType, number> = {
+    'A+': 0, 'A-': 0, 'B+': 0, 'B-': 0, 'AB+': 0, 'AB-': 0, 'O+': 0, 'O-': 0
   };
+  
+  inventoryData.forEach(item => {
+    totalByBloodType[item.bloodType] += item.units;
+  });
+  
+  // Filter inventory data
+  const filteredInventory = inventoryData.filter(item => {
+    const matchesSearch = 
+      item.bloodType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.locationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.expiryDate.includes(searchQuery);
+    
+    const matchesBloodType = !filterBloodType || filterBloodType === 'all' || item.bloodType === filterBloodType;
+    const matchesLocation = !filterLocation || filterLocation === 'all' || item.locationName === filterLocation;
+    
+    return matchesSearch && matchesBloodType && matchesLocation;
+  });
+  
+  // Check for expiring inventory (within 7 days)
+  const today = new Date();
+  const sevenDaysLater = new Date();
+  sevenDaysLater.setDate(today.getDate() + 7);
+  
+  const expiringItems = inventoryData.filter(item => {
+    const expiryDate = new Date(item.expiryDate);
+    return expiryDate > today && expiryDate <= sevenDaysLater;
+  });
+  
+  // Get unique locations for filter
+  const uniqueLocations = Array.from(new Set(inventoryData.map(item => item.locationName))).filter(Boolean) as string[];
 
-  // Simplified view for homepage
-  if (simpleView) {
-    return (
-      <div className="space-y-4">
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <svg className="animate-spin h-8 w-8 text-bloodRed-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
-              {filteredStockData.map((item) => {
-                const stockStatus = getStockStatus(item.units, item.capacity);
-                const percentage = Math.round((item.units / item.capacity) * 100);
-                
-                return (
-                  <Card key={item.bloodType} className="p-3 text-center hover:shadow-md transition-shadow">
-                    <div className="inline-flex items-center justify-center bg-bloodRed-100 text-bloodRed-900 text-xl font-bold rounded-full w-10 h-10 mb-2">
-                      {item.bloodType}
-                    </div>
-                    <div className="text-xl font-bold">{item.units}</div>
-                    <div className="text-xs text-gray-500 mb-2">units</div>
-                    <Progress value={percentage} className={`h-1.5 ${stockStatus.color}`} />
-                    <div className={`text-xs font-medium mt-1 ${stockStatus.textColor}`}>
-                      {stockStatus.status}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-            
-            {/* Simplified critical alerts - only show if there are any */}
-            {(lowStockAlerts.length > 0 || expiryAlerts.length > 0) && (
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center">
-                <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
-                <div className="text-sm">
-                  <span className="font-medium">Critical Alerts: </span>
-                  {lowStockAlerts.length > 0 && `${lowStockAlerts.length} blood types low on stock. `}
-                  {expiryAlerts.length > 0 && `${expiryAlerts.length} blood types expiring soon.`}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
-
-  // Full view for dashboard
   return (
     <div className="space-y-6">
-      <div className="flex justify-between">
-        <h3 className="text-lg font-semibold">Current Inventory Status</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-      
-      {loading ? (
-        <div className="flex justify-center py-8">
-          <svg className="animate-spin h-8 w-8 text-bloodRed-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-            {filteredStockData.map((item) => {
-              const stockStatus = getStockStatus(item.units, item.capacity);
-              const percentage = Math.round((item.units / item.capacity) * 100);
-              
-              return (
-                <Card key={item.bloodType} className="p-4 hover:shadow-md transition-shadow">
-                  <div className="text-center space-y-2">
-                    <div className="inline-flex items-center justify-center bg-bloodRed-100 text-bloodRed-900 text-xl font-bold rounded-full w-12 h-12">
-                      {item.bloodType}
-                    </div>
-                    <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
-                    <div className="text-2xl font-bold">{item.units} <span className="text-sm text-gray-500">units</span></div>
-                    <Progress value={percentage} className={`h-2 ${stockStatus.color}`} />
-                    <div className="flex justify-between text-xs">
-                      <span>{percentage}%</span>
-                      <span className={`font-medium ${stockStatus.textColor}`}>
-                        {stockStatus.status}
-                      </span>
-                    </div>
-                    {item.location && (
-                      <div className="text-xs text-gray-500">
-                        {item.location}
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="detailed">Detailed View</TabsTrigger>
+          <TabsTrigger value="expiring">Expiring Soon</TabsTrigger>
+        </TabsList>
+        
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Inventory</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalUnits} units</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Across all blood types and locations
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Universal Donor (O-)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalByBloodType['O-']} units</div>
+                <Progress className="h-2 mt-2" value={(totalByBloodType['O-'] / (totalUnits || 1)) * 100} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {Math.round((totalByBloodType['O-'] / (totalUnits || 1)) * 100)}% of total inventory
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Expiring Soon</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{expiringItems.reduce((sum, item) => sum + item.units, 0)} units</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Expires within the next 7 days
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Locations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{uniqueLocations.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Active storage facilities
+                </p>
+              </CardContent>
+            </Card>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Critical Stock Alerts</h3>
-              <div className="space-y-2">
-                {lowStockAlerts.length > 0 || expiryAlerts.length > 0 ? (
-                  <>
-                    {lowStockAlerts.map((item, index) => (
-                      <div key={`low-${item.bloodType}-${index}`} className="flex items-center space-x-3 p-3 bg-red-50 border border-red-100 rounded-md">
-                        <CircleX className="h-5 w-5 text-red-500" />
-                        <div>
-                          <span className="font-medium">Critical Stock Alert:</span> {item.bloodType} - Only {item.units} units available ({Math.round((item.units / item.capacity) * 100)}%)
-                          {item.location && <span className="text-sm text-gray-500 ml-2">at {item.location}</span>}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {expiryAlerts.map((item, index) => (
-                      <div key={`expiry-${item.bloodType}-${index}`} className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-100 rounded-md">
-                        <CircleCheck className="h-5 w-5 text-amber-500" />
-                        <div>
-                          <span className="font-medium">Expiring Soon:</span> {item.bloodType} - Expires on {item.expiryDate}
-                          {item.location && <span className="text-sm text-gray-500 ml-2">at {item.location}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <p className="text-center text-gray-500 py-4">No critical alerts at this time</p>
-                )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Blood Type Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.entries(totalByBloodType).map(([bloodType, units]) => (
+                  <div key={bloodType}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium">{bloodType}</span>
+                      <span className="text-sm text-muted-foreground">{units} units</span>
+                    </div>
+                    <Progress 
+                      className="h-2" 
+                      value={(units / (totalUnits || 1)) * 100} 
+                    />
+                  </div>
+                ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Detailed View Tab */}
+        <TabsContent value="detailed">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <CardTitle>Blood Inventory</CardTitle>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filter
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={() => setShowAddInventoryDialog(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Inventory
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="relative w-full mt-4">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by blood type, location..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              {showFilters && (
+                <div className="bg-muted/50 p-4 rounded-md mt-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="blood-type-filter">Blood Type</Label>
+                      <Select value={filterBloodType || "all"} onValueChange={setFilterBloodType}>
+                        <SelectTrigger id="blood-type-filter">
+                          <SelectValue placeholder="All blood types" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All blood types</SelectItem>
+                          <SelectItem value="A+">A+</SelectItem>
+                          <SelectItem value="A-">A-</SelectItem>
+                          <SelectItem value="B+">B+</SelectItem>
+                          <SelectItem value="B-">B-</SelectItem>
+                          <SelectItem value="AB+">AB+</SelectItem>
+                          <SelectItem value="AB-">AB-</SelectItem>
+                          <SelectItem value="O+">O+</SelectItem>
+                          <SelectItem value="O-">O-</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="location-filter">Location</Label>
+                      <Select value={filterLocation || "all"} onValueChange={setFilterLocation}>
+                        <SelectTrigger id="location-filter">
+                          <SelectValue placeholder="All locations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All locations</SelectItem>
+                          {uniqueLocations.map(location => (
+                            <SelectItem key={location} value={location}>{location}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setFilterBloodType(null);
+                      setFilterLocation(null);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-muted-foreground border-t-transparent rounded-full"></div>
+                </div>
+              ) : filteredInventory.length > 0 ? (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Blood Type</TableHead>
+                        <TableHead>Units</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Donation Date</TableHead>
+                        <TableHead>Expires On</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInventory.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-red-50 text-red-800 hover:bg-red-100 border-red-200">
+                              {item.bloodType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{item.units}</TableCell>
+                          <TableCell>{item.locationName || 'Central Blood Bank'}</TableCell>
+                          <TableCell>{item.donationDate}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <span>{item.expiryDate}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={item.status === 'available' ? 'default' : 'secondary'}>
+                              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="py-12 text-center border rounded-md">
+                  <Droplet className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No inventory found</h3>
+                  <p className="text-muted-foreground mt-1">
+                    Try changing your filters or add new inventory.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Expiring Soon Tab */}
+        <TabsContent value="expiring">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Expiring Soon</CardTitle>
+                <Badge variant="destructive" className="ml-2">
+                  {expiringItems.reduce((sum, item) => sum + item.units, 0)} units
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {expiringItems.length > 0 ? (
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Blood Type</TableHead>
+                        <TableHead>Units</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Expires In</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expiringItems.map(item => {
+                        const daysUntilExpiry = Math.ceil(
+                          (new Date(item.expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-red-50 text-red-800 hover:bg-red-100 border-red-200">
+                                {item.bloodType}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.units}</TableCell>
+                            <TableCell>{item.locationName || 'Central Blood Bank'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <span className={`${
+                                  daysUntilExpiry <= 3 ? 'text-red-600 font-medium' : 'text-amber-600'
+                                }`}>
+                                  {daysUntilExpiry} days
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                Mark as Used
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="py-12 text-center border rounded-md">
+                  <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No expiring inventory</h3>
+                  <p className="text-muted-foreground mt-1">
+                    There is no blood inventory expiring in the next 7 days.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      {/* Add Inventory Dialog */}
+      <Dialog open={showAddInventoryDialog} onOpenChange={setShowAddInventoryDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Blood Inventory</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bloodType" className="text-right">
+                Blood Type
+              </Label>
+              <Select 
+                value={newInventory.bloodType} 
+                onValueChange={(value) => setNewInventory({...newInventory, bloodType: value as BloodType})}
+              >
+                <SelectTrigger id="bloodType" className="col-span-3">
+                  <SelectValue placeholder="Select blood type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A+">A+</SelectItem>
+                  <SelectItem value="A-">A-</SelectItem>
+                  <SelectItem value="B+">B+</SelectItem>
+                  <SelectItem value="B-">B-</SelectItem>
+                  <SelectItem value="AB+">AB+</SelectItem>
+                  <SelectItem value="AB-">AB-</SelectItem>
+                  <SelectItem value="O+">O+</SelectItem>
+                  <SelectItem value="O-">O-</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Location Based Filtering</h3>
-              <LocationFilter onLocationSelect={setSelectedLocation} onError={handleMapError} />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="units" className="text-right">
+                Units
+              </Label>
+              <Input
+                id="units"
+                type="number"
+                min="1"
+                value={newInventory.units}
+                onChange={(e) => setNewInventory({...newInventory, units: parseInt(e.target.value) || 1})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="donationDate" className="text-right">
+                Donation Date
+              </Label>
+              <Input
+                id="donationDate"
+                type="date"
+                value={newInventory.donationDate}
+                onChange={(e) => setNewInventory({...newInventory, donationDate: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="expiryDate" className="text-right">
+                Expiry Date
+              </Label>
+              <Input
+                id="expiryDate"
+                type="date"
+                value={newInventory.expiryDate}
+                onChange={(e) => setNewInventory({...newInventory, expiryDate: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="location" className="text-right">
+                Location
+              </Label>
+              <Select 
+                value={newInventory.locationId} 
+                onValueChange={(value) => setNewInventory({...newInventory, locationId: value})}
+              >
+                <SelectTrigger id="location" className="col-span-3">
+                  <SelectValue placeholder="Select location (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Central Blood Bank</SelectItem>
+                  {locations.map(location => (
+                    <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </>
-      )}
+          <DialogFooter>
+            <Button type="submit" onClick={handleAddInventory}>Add to Inventory</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+export default BloodInventory;
