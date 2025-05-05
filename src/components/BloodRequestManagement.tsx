@@ -18,14 +18,19 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
+import { supabase } from '@/lib/supabase';
 
+// Type definitions
 interface BloodRequest {
-  id: number;
+  id: string;
   hospital: string;
-  date: string;
-  bloodType: string;
+  hospital_id?: string;
+  date: string; 
+  request_date?: string;
+  blood_type: string;
   units: number;
   urgency: 'normal' | 'urgent' | 'critical';
+  priority?: string;
   status: 'pending' | 'approved' | 'rejected';
   notes?: string;
   requester?: string;
@@ -41,8 +46,26 @@ export const BloodRequestForm = () => {
   const [hospitalName, setHospitalName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hospitals, setHospitals] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
+    // Fetch hospitals from the database
+    const fetchHospitals = async () => {
+      const { data, error } = await supabase
+        .from('hospitals')
+        .select('id, name');
+      
+      if (error) {
+        console.error('Error fetching hospitals:', error);
+        toast.error('Failed to load hospitals');
+        return;
+      }
+      
+      setHospitals(data || []);
+    };
+
+    fetchHospitals();
+
     // Auto-fill hospital name if user is a hospital
     const userRole = localStorage.getItem('userRole');
     const userName = localStorage.getItem('userName');
@@ -52,7 +75,7 @@ export const BloodRequestForm = () => {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bloodType || !units || !hospitalName) {
       toast.error("Please fill all required fields");
@@ -61,50 +84,51 @@ export const BloodRequestForm = () => {
 
     setLoading(true);
     
-    // Get existing requests
-    const existingRequests = JSON.parse(localStorage.getItem('bloodRequests') || '[]');
-    const newId = existingRequests.length > 0 ? Math.max(...existingRequests.map((r: any) => r.id)) + 1 : 1;
-    
-    // Create new request
-    const newRequest = {
-      id: newId,
-      hospital: hospitalName,
-      date: new Date().toISOString().split('T')[0],
-      bloodType,
-      units: parseInt(units),
-      urgency,
-      status: 'pending',
-      notes,
-      contactPhone,
-      requester: localStorage.getItem('userName') || 'Unknown'
-    };
-    
-    // Save to localStorage
-    localStorage.setItem('bloodRequests', JSON.stringify([...existingRequests, newRequest]));
-    
-    // Fire a notification event
-    const event = new CustomEvent('notification', { 
-      detail: { 
-        message: `New blood request submitted: ${units} units of ${bloodType}`, 
-        type: 'success' 
-      } 
-    });
-    window.dispatchEvent(event);
-    
-    setTimeout(() => {
+    try {
+      // Find hospital ID by name
+      const hospitalId = hospitals.find(h => h.name === hospitalName)?.id;
+      
+      if (!hospitalId && localStorage.getItem('userRole') === 'hospital') {
+        throw new Error('Hospital not found in database');
+      }
+      
+      // Convert urgency to priority for database
+      const priority = urgency;
+      
+      // Create new request in database
+      const { data, error } = await supabase
+        .from('blood_requests')
+        .insert({
+          hospital_id: hospitalId || null,
+          blood_type: bloodType,
+          units: parseInt(units),
+          priority,
+          notes,
+          status: 'pending'
+        })
+        .select();
+      
+      if (error) throw error;
+      
       toast.success("Blood request submitted successfully");
+      
+      // Reset form
       setBloodType('');
       setUnits('');
       setUrgency('normal');
       setNotes('');
       setContactPhone('');
-      setLoading(false);
       
       // Only reset hospital name if not a hospital user
       if (localStorage.getItem('userRole') !== 'hospital') {
         setHospitalName('');
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error submitting blood request:', error);
+      toast.error("Failed to submit blood request");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,14 +141,25 @@ export const BloodRequestForm = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="hospital">Hospital/Clinic Name <span className="text-red-500">*</span></Label>
-            <Input 
-              id="hospital" 
-              value={hospitalName} 
-              onChange={(e) => setHospitalName(e.target.value)}
-              placeholder="Enter hospital or clinic name"
-              disabled={localStorage.getItem('userRole') === 'hospital'}
-              required
-            />
+            {localStorage.getItem('userRole') === 'hospital' ? (
+              <Input 
+                id="hospital" 
+                value={hospitalName} 
+                disabled
+                required
+              />
+            ) : (
+              <Select value={hospitalName} onValueChange={setHospitalName} required>
+                <SelectTrigger id="hospital">
+                  <SelectValue placeholder="Select hospital or clinic" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hospitals.map(hospital => (
+                    <SelectItem key={hospital.id} value={hospital.name}>{hospital.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -222,73 +257,169 @@ export const BloodRequestManagement = () => {
   const [selectedRequest, setSelectedRequest] = useState<BloodRequest | null>(null);
   const [showRequestDetails, setShowRequestDetails] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [requests, setRequests] = useState<BloodRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hospitals, setHospitals] = useState<{id: string, name: string}[]>([]);
   
-  // Get requests from localStorage
-  const [requests, setRequests] = useState<BloodRequest[]>(() => {
-    const storedRequests = localStorage.getItem('bloodRequests');
-    if (storedRequests) {
-      return JSON.parse(storedRequests);
-    }
-    
-    // Default requests if none exist
-    return [
-      { id: 1, hospital: "General Hospital", date: "2023-06-15", bloodType: "A+", units: 2, urgency: "normal", status: "pending" },
-      { id: 2, hospital: "Children's Medical", date: "2023-06-14", bloodType: "O-", units: 5, urgency: "urgent", status: "approved" },
-      { id: 3, hospital: "Metro Emergency Center", date: "2023-06-13", bloodType: "B+", units: 3, urgency: "critical", status: "pending" },
-      { id: 4, hospital: "University Hospital", date: "2023-06-12", bloodType: "AB+", units: 1, urgency: "normal", status: "rejected" },
-      { id: 5, hospital: "Community Health", date: "2023-06-10", bloodType: "O+", units: 4, urgency: "urgent", status: "approved" }
-    ];
-  });
-  
-  // Save requests to localStorage whenever they change
+  // Fetch blood requests and hospitals from the database
   useEffect(() => {
-    localStorage.setItem('bloodRequests', JSON.stringify(requests));
+    const fetchRequests = async () => {
+      setLoading(true);
+      try {
+        // Fetch hospitals first for mapping hospital names
+        const { data: hospitalsData, error: hospitalsError } = await supabase
+          .from('hospitals')
+          .select('id, name');
+        
+        if (hospitalsError) throw hospitalsError;
+        setHospitals(hospitalsData || []);
+        
+        // Fetch blood requests
+        const { data, error } = await supabase
+          .from('blood_requests')
+          .select('*')
+          .order('request_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        // Map hospitals to requests
+        const mappedRequests = (data || []).map(req => {
+          const hospital = hospitalsData?.find(h => h.id === req.hospital_id);
+          return {
+            id: req.id,
+            hospital: hospital?.name || 'Unknown Hospital',
+            hospital_id: req.hospital_id,
+            date: new Date(req.request_date).toISOString().split('T')[0],
+            request_date: req.request_date,
+            blood_type: req.blood_type,
+            units: req.units,
+            urgency: req.priority as 'normal' | 'urgent' | 'critical',
+            priority: req.priority,
+            status: req.status as 'pending' | 'approved' | 'rejected',
+            notes: req.notes
+          };
+        });
+        
+        setRequests(mappedRequests);
+      } catch (error) {
+        console.error('Error fetching blood requests:', error);
+        toast.error('Failed to load blood requests');
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Also update the admin data in localStorage for the dashboard
-    const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
-    adminData.recentRequests = requests.filter(r => r.status === 'pending').slice(0, 2).map(r => ({
-      hospital: r.hospital,
-      date: r.date,
-      type: r.bloodType,
-      units: r.units,
-      status: r.status
-    }));
+    fetchRequests();
     
-    localStorage.setItem('adminData', JSON.stringify(adminData));
-  }, [requests]);
+    // Set up real-time subscription for updates
+    const channel = supabase
+      .channel('blood-requests-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'blood_requests' }, 
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  const handleApprove = (id: number) => {
-    setRequests(requests.map(request => 
-      request.id === id ? { ...request, status: 'approved' } : request
-    ));
-    toast.success("Blood request approved");
-    
-    // Fire a notification event
-    const request = requests.find(r => r.id === id);
-    const event = new CustomEvent('notification', { 
-      detail: { 
-        message: `Blood request from ${request?.hospital} for ${request?.units} units of ${request?.bloodType} has been approved`, 
-        type: 'success' 
-      } 
-    });
-    window.dispatchEvent(event);
+  const handleApprove = async (id: string) => {
+    try {
+      // Check blood inventory before approving
+      const request = requests.find(r => r.id === id);
+      if (!request) throw new Error('Request not found');
+      
+      // Get available inventory for this blood type
+      const { data: inventoryData, error: inventoryError } = await supabase
+        .from('blood_inventory')
+        .select('id, units')
+        .eq('blood_type', request.blood_type)
+        .eq('status', 'available')
+        .order('expiry_date', { ascending: true });
+      
+      if (inventoryError) throw inventoryError;
+      
+      // Calculate total available units
+      const totalAvailable = (inventoryData || []).reduce((sum, item) => sum + item.units, 0);
+      
+      if (totalAvailable < request.units) {
+        toast.error(`Insufficient inventory of ${request.blood_type}. Only ${totalAvailable} units available.`);
+        return;
+      }
+      
+      // Approve the request
+      const { error } = await supabase
+        .from('blood_requests')
+        .update({ 
+          status: 'approved',
+          approval_date: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update inventory (reduce available units)
+      let unitsNeeded = request.units;
+      for (const item of inventoryData || []) {
+        if (unitsNeeded <= 0) break;
+        
+        const unitsToDeduct = Math.min(unitsNeeded, item.units);
+        
+        if (unitsToDeduct === item.units) {
+          // Use entire inventory item
+          const { error: updateError } = await supabase
+            .from('blood_inventory')
+            .update({ status: 'used' })
+            .eq('id', item.id);
+          
+          if (updateError) throw updateError;
+        } else {
+          // Partially use inventory item
+          const { error: updateError } = await supabase
+            .from('blood_inventory')
+            .update({ units: item.units - unitsToDeduct })
+            .eq('id', item.id);
+          
+          if (updateError) throw updateError;
+        }
+        
+        unitsNeeded -= unitsToDeduct;
+      }
+      
+      // Update the UI
+      setRequests(requests.map(request => 
+        request.id === id ? { ...request, status: 'approved' } : request
+      ));
+      
+      toast.success("Blood request approved and inventory updated");
+    } catch (error) {
+      console.error('Error approving blood request:', error);
+      toast.error("Failed to approve blood request");
+    }
   };
 
-  const handleReject = (id: number) => {
-    setRequests(requests.map(request => 
-      request.id === id ? { ...request, status: 'rejected' } : request
-    ));
-    toast.error("Blood request rejected");
-    
-    // Fire a notification event
-    const request = requests.find(r => r.id === id);
-    const event = new CustomEvent('notification', { 
-      detail: { 
-        message: `Blood request from ${request?.hospital} for ${request?.units} units of ${request?.bloodType} has been rejected`, 
-        type: 'error' 
-      } 
-    });
-    window.dispatchEvent(event);
+  const handleReject = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('blood_requests')
+        .update({ status: 'rejected' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setRequests(requests.map(request => 
+        request.id === id ? { ...request, status: 'rejected' } : request
+      ));
+      
+      toast.error("Blood request rejected");
+    } catch (error) {
+      console.error('Error rejecting blood request:', error);
+      toast.error("Failed to reject blood request");
+    }
   };
   
   const handleViewDetails = (request: BloodRequest) => {
@@ -299,38 +430,40 @@ export const BloodRequestManagement = () => {
   const handleExport = () => {
     setIsExporting(true);
     
-    // Create CSV content
-    const headers = ["Hospital", "Date", "Blood Type", "Units", "Urgency", "Status", "Requester", "Contact", "Notes"];
-    const csvContent = [
-      headers.join(','),
-      ...requests.map(request => [
-        request.hospital.replace(/,/g, ' '),
-        request.date,
-        request.bloodType,
-        request.units,
-        request.urgency,
-        request.status,
-        request.requester || 'N/A',
-        request.contactPhone || 'N/A',
-        request.notes ? `"${request.notes.replace(/"/g, '""')}"` : 'N/A'
-      ].join(','))
-    ].join('\n');
-    
-    // Create a Blob and download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'blood_requests_export.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => {
+    try {
+      // Create CSV content
+      const headers = ["Hospital", "Date", "Blood Type", "Units", "Urgency", "Status", "Notes"];
+      const csvContent = [
+        headers.join(','),
+        ...requests.map(request => [
+          request.hospital.replace(/,/g, ' '),
+          request.date,
+          request.blood_type,
+          request.units,
+          request.urgency,
+          request.status,
+          request.notes ? `"${request.notes.replace(/"/g, '""')}"` : 'N/A'
+        ].join(','))
+      ].join('\n');
+      
+      // Create a Blob and download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'blood_requests_export.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
       toast.success("Blood requests exported successfully");
+    } catch (error) {
+      console.error('Error exporting blood requests:', error);
+      toast.error("Failed to export blood requests");
+    } finally {
       setIsExporting(false);
-    }, 500);
+    }
   };
 
   const filteredRequests = requests.filter(request => {
@@ -348,14 +481,14 @@ export const BloodRequestManagement = () => {
     // Filter by search query
     const matchesSearch = 
       request.hospital.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.bloodType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request.blood_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.status.toLowerCase().includes(searchQuery.toLowerCase());
     
     // Filter by status
-    const matchesStatus = !filterStatus || request.status === filterStatus;
+    const matchesStatus = !filterStatus || filterStatus === 'all' || request.status === filterStatus;
     
     // Filter by blood type
-    const matchesBloodType = !filterBloodType || request.bloodType === filterBloodType;
+    const matchesBloodType = !filterBloodType || filterBloodType === 'all' || request.blood_type === filterBloodType;
     
     return matchesSearch && matchesStatus && matchesBloodType;
   });
@@ -474,14 +607,25 @@ export const BloodRequestManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRequests.length > 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  <div className="flex justify-center">
+                    <svg className="animate-spin h-8 w-8 text-bloodRed-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredRequests.length > 0 ? (
               filteredRequests.map(request => (
                 <TableRow key={request.id}>
                   <TableCell className="font-medium">{request.hospital}</TableCell>
                   <TableCell>{request.date}</TableCell>
                   <TableCell>
                     <span className="bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
-                      {request.bloodType}
+                      {request.blood_type}
                     </span>
                   </TableCell>
                   <TableCell>{request.units}</TableCell>
@@ -577,7 +721,7 @@ export const BloodRequestManagement = () => {
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Blood Type</h3>
                       <p className="inline-flex bg-bloodRed-50 text-bloodRed-700 px-2 py-1 rounded text-xs font-medium">
-                        {selectedRequest.bloodType}
+                        {selectedRequest.blood_type}
                       </p>
                     </div>
                     <div>

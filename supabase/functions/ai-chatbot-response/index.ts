@@ -31,36 +31,81 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
-    // Fetch chatbot responses to use as context
-    const { data: responses, error } = await supabase
-      .from('chatbot_responses')
-      .select('*')
-    
-    if (error) {
-      throw error
+    // Get blood inventory status to provide up-to-date context
+    const { data: inventoryData, error: inventoryError } = await supabase
+      .from('blood_inventory')
+      .select('blood_type, units')
+      .order('blood_type')
+
+    if (inventoryError) {
+      console.error('Error fetching inventory data:', inventoryError)
     }
 
-    // Process responses to create a context for the AI model
-    const contextData = responses.map(item => {
-      return `Question: ${item.query_pattern}
-Answer: ${item.response_text}`
-    }).join('\n\n');
+    // Get donation center data
+    const { data: centerData, error: centerError } = await supabase
+      .from('donation_centers')
+      .select('name, city, address')
+      .limit(10)
 
-    // Prepare system instructions for the AI model
+    if (centerError) {
+      console.error('Error fetching center data:', centerError)
+    }
+
+    // Get predictive demand data
+    const { data: demandData, error: demandError } = await supabase
+      .from('predictive_demand')
+      .select('blood_type, urgency_level')
+      .order('urgency_level', { ascending: false })
+      .limit(3)
+
+    if (demandError) {
+      console.error('Error fetching demand data:', demandError)
+    }
+
+    // Format inventory data for the AI context
+    const inventoryContext = inventoryData ? 
+      `Current blood inventory status:\n${inventoryData.map(item => 
+        `${item.blood_type}: ${item.units} units`).join('\n')}` : 
+      'Blood inventory data not available';
+
+    // Format donation center data for the AI context
+    const centerContext = centerData ? 
+      `Available donation centers:\n${centerData.map(center => 
+        `${center.name} - ${center.city}, ${center.address}`).join('\n')}` : 
+      'Donation center data not available';
+
+    // Format demand data for the AI context
+    const demandContext = demandData ? 
+      `Current blood demand priorities:\n${demandData.map(item => 
+        `${item.blood_type}: ${item.urgency_level} urgency`).join('\n')}` : 
+      'Demand data not available';
+
+    // Prepare system instructions for the AI model with real-time data
     const systemInstructions = `
-      You are a helpful blood donation assistant for LifeFlow, a blood donation platform. 
+      You are a helpful blood donation assistant for LifeFlow, a blood donation platform in Lebanon. 
       Your goal is to answer questions about blood donation, eligibility, process, and provide information 
       about LifeFlow's services.
       
-      If asked about locations, provide general guidance and suggest users check the donation center 
-      locator on the website.
+      Use the following real-time information in your responses when relevant:
+      
+      ${inventoryContext}
+      
+      ${centerContext}
+      
+      ${demandContext}
+      
+      If asked about specific locations, provide information about the centers mentioned above.
       
       If asked about medical advice beyond basic eligibility, suggest consulting with healthcare professionals.
       
+      If a user wants to donate, encourage them based on current demand, especially for blood types with high urgency.
+      
+      If a user mentions a specific location in Lebanon, try to reference nearby donation centers.
+      
       Keep responses friendly, informative, and concise (max 3-4 sentences).
       
-      Here's some information about common topics:
-      ${contextData}
+      If the user asks about how to navigate to a specific page on the platform, you can add [NAVIGATE:/page-path] 
+      to your response to help them get there. Example pages: /donate, /request, /about.
     `;
 
     // Build the conversation history
@@ -97,6 +142,21 @@ Answer: ${item.response_text}`
     }
 
     const aiResponse = openaiData.choices[0].message.content;
+    
+    // Save the interaction to the database for future training
+    try {
+      await supabase
+        .from('chatbot_responses')
+        .insert({
+          query_pattern: message,
+          response_text: aiResponse,
+          category: 'ai-generated',
+          keywords: message.toLowerCase().split(' ').filter((word: string) => word.length > 3)
+        });
+    } catch (insertError) {
+      console.error('Error saving interaction to database:', insertError);
+      // Continue with the response even if saving fails
+    }
     
     // Check if there's navigation info in the response
     let responseText = aiResponse;
