@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -922,3 +923,175 @@ export const HospitalRequestDashboard = () => {
                   />
                   
                   {requests.find(r => r.id === selectedRequest)!.notes && (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-medium mb-2">Additional Notes:</h3>
+                      <div className="bg-muted p-4 rounded-md text-sm">
+                        {requests.find(r => r.id === selectedRequest)!.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Donor Matching Modal */}
+      {showDonorMatching && selectedRequest && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setShowDonorMatching(false)}
+        >
+          <div 
+            className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-xl font-bold">Donor Matching</h2>
+                  <p className="text-muted-foreground">
+                    Find suitable donors for blood request
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-gray-400"
+                  onClick={() => setShowDonorMatching(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Request details */}
+                <div className="bg-muted rounded-lg p-4">
+                  <h3 className="font-medium mb-2">Request Details</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground block">Hospital:</span>
+                      <span className="font-medium">
+                        {requests.find(r => r.id === selectedRequest)?.hospital_name}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Blood Type:</span>
+                      <span className="font-medium">
+                        {requests.find(r => r.id === selectedRequest)?.blood_type}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Units:</span>
+                      <span className="font-medium">
+                        {requests.find(r => r.id === selectedRequest)?.units}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Priority:</span>
+                      <span className="font-medium">
+                        {PRIORITY_DISPLAY[requests.find(r => r.id === selectedRequest)?.priority as PriorityLevel]}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                {isMatching ? (
+                  <div className="py-12 text-center">
+                    <div className="animate-spin h-12 w-12 border-2 border-bloodRed-600 rounded-full border-t-transparent mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Finding matching donors...</p>
+                  </div>
+                ) : error ? (
+                  <div className="py-8 text-center">
+                    <CircleAlert className="h-12 w-12 text-red-500 mx-auto" />
+                    <h3 className="mt-2 text-lg font-medium">Error finding donors</h3>
+                    <p className="mt-1 text-muted-foreground">{error}</p>
+                    <Button 
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => {
+                        const request = requests.find(r => r.id === selectedRequest);
+                        if (request) {
+                          findMatchingDonors({
+                            bloodType: request.blood_type,
+                            location: { latitude: 0, longitude: 0 },
+                            unitsNeeded: request.units,
+                          });
+                        }
+                      }}
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : matchedDonors.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
+                    <h3 className="mt-2 text-lg font-medium">No matching donors found</h3>
+                    <p className="mt-1 text-muted-foreground">
+                      Try expanding your search criteria or check back later
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium">Matching Donors</h3>
+                      <div className="text-sm text-muted-foreground">
+                        {matchedDonors.length} donors found
+                      </div>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Donor Name
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Blood Type
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Last Donation
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Distance
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Match Score
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Eligibility
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-border">
+                          {matchedDonors.map((donor) => renderDonorRow(donor))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div className="mt-6 flex justify-end gap-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowDonorMatching(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => handleNotifySelectedDonors(matchedDonors.map(d => d.id))}
+                        className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                      >
+                        <Bell className="h-4 w-4 mr-2" />
+                        Notify All Donors
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
