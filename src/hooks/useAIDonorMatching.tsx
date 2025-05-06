@@ -1,31 +1,12 @@
-
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { MatchedDonor, DonorMatchingParams, DonorMatchingHook } from '@/types/status';
 
-export type MatchedDonor = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  bloodType: string;
-  lastDonation: string | null;
-  distance: number | null;
-  score: number;
-  eligibilityLevel: 'high' | 'medium' | 'low';
-};
-
-export type DonorMatchingParams = {
-  bloodType: string;
-  location?: { latitude: number; longitude: number } | string;
-  unitsNeeded: number;
-  excludeDonorIds?: string[];
-};
-
-export function useAIDonorMatching() {
+export function useAIDonorMatching(): DonorMatchingHook {
   const [isLoading, setIsLoading] = useState(false);
   const [matchedDonors, setMatchedDonors] = useState<MatchedDonor[]>([]);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   // Function to find matching donors based on criteria
   const findMatchingDonors = async (params: DonorMatchingParams): Promise<void> => {

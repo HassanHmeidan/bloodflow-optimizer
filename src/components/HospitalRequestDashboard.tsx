@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -49,7 +48,17 @@ import {
   Bell
 } from "lucide-react";
 import { cn } from '@/lib/utils';
-import { BloodRequestStatus, BloodType, PriorityLevel } from '@/types/status';
+import { 
+  BloodRequestStatus, 
+  BloodType, 
+  PriorityLevel, 
+  DonorMatchingHook, 
+  MatchedDonor, 
+  Hospital, 
+  BloodRequest, 
+  RequestFormValues 
+} from '@/types/status';
+import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
 
 // Define blood types and priority levels for display purposes
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -62,40 +71,6 @@ const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
   high: "High",
   critical: "Critical"
 };
-
-// Define a simple standalone type for matched donors
-type MatchedDonor = {
-  id: string;
-  name: string;
-  email?: string;
-  bloodType: string;
-  lastDonation?: string;
-  distance?: number;
-  score: number;
-  eligibilityLevel: 'high' | 'medium' | 'low';
-};
-
-// Define a simple interface for the donor matching hook
-interface DonorMatchingHook {
-  findMatchingDonors: (params: {
-    bloodType: string;
-    location: { latitude: number; longitude: number };
-    unitsNeeded: number;
-  }) => Promise<void>;
-  matchedDonors: MatchedDonor[];
-  notifyDonors: (donorIds: string[], requestInfo: {
-    requestId: string;
-    bloodType: string;
-    units: number;
-    urgency: string;
-    hospitalName: string;
-  }) => Promise<boolean>;
-  isLoading: boolean;
-  error: string | null;
-}
-
-// Import the hook implementation
-import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
 
 // Define the form schema
 const requestFormSchema = z.object({
@@ -120,30 +95,6 @@ const requestFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Define form values type explicitly
-type RequestFormValues = z.infer<typeof requestFormSchema>;
-
-// Define Hospital interface
-interface Hospital {
-  id: string;
-  name: string;
-}
-
-// Define BloodRequest interface
-interface BloodRequest {
-  id: string;
-  hospital_id: string;
-  hospital_name: string;
-  blood_type: BloodType;
-  units: number;
-  priority: PriorityLevel;
-  status: BloodRequestStatus;
-  request_date: string;
-  approval_date?: string;
-  fulfillment_date?: string;
-  notes?: string;
-}
-
 export const HospitalRequestDashboard = () => {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [requests, setRequests] = useState<BloodRequest[]>([]);
@@ -155,7 +106,7 @@ export const HospitalRequestDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   // Break the circular dependency with a type assertion
-  const donorMatching = useAIDonorMatching() as unknown as DonorMatchingHook;
+  const donorMatching = useAIDonorMatching();
   const { 
     findMatchingDonors, 
     matchedDonors, 
