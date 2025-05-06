@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -55,10 +54,14 @@ import type { Database } from '@/integrations/supabase/types';
 
 // Define BloodType from the Database type
 type BloodType = Database['public']['Enums']['blood_type'];
-type MatchedDonor = import('@/hooks/useAIDonorMatching').MatchedDonor;
 
+// Import MatchedDonor type directly to avoid circular references
+import { MatchedDonor } from '@/hooks/useAIDonorMatching';
+
+// Use const array for blood types
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
+// Define priority levels
 const PRIORITY_LEVELS = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -91,22 +94,16 @@ const requestFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Use type alias instead of inference to avoid deep instantiation
-type RequestFormValues = {
-  hospitalId: string;
-  bloodType: typeof BLOOD_TYPES[number];
-  units: string;
-  priority: PriorityLevel;
-  requiredBy: Date;
-  notes?: string;
-};
+// Explicitly define the form values type
+type RequestFormValues = z.infer<typeof requestFormSchema>;
 
+// Define simple interface for Hospital
 interface Hospital {
   id: string;
   name: string;
 }
 
-// Define BloodRequest explicitly to avoid deep type instantiation
+// Define BloodRequest explicitly without using types that could cause circular references
 interface BloodRequest {
   id: string;
   hospital_id: string;
