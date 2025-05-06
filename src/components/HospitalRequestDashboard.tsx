@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -48,15 +49,13 @@ import {
   Bell
 } from "lucide-react";
 import { cn } from '@/lib/utils';
-import { BloodRequestStatus } from '@/types/status';
+import { BloodRequestStatus, BloodType, PriorityLevel } from '@/types/status';
 
 // Define blood types directly
-const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
-type BloodTypeValue = typeof BLOOD_TYPES[number];
+const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 // Define priority levels with both string array and display mapping
-const PRIORITY_LEVELS = ["low", "medium", "high", "critical"] as const;
-type PriorityLevel = typeof PRIORITY_LEVELS[number];
+const PRIORITY_LEVELS: PriorityLevel[] = ["low", "medium", "high", "critical"];
 
 // Priority display mapping for UI
 const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
@@ -157,8 +156,8 @@ export const HospitalRequestDashboard = () => {
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use type assertion to tell TypeScript what the hook returns
-  const donorMatching = useAIDonorMatching() as DonorMatchingHook;
+  // Use explicit casting to break any circular type references
+  const donorMatching = useAIDonorMatching() as unknown as DonorMatchingHook;
   const { 
     findMatchingDonors, 
     matchedDonors, 
@@ -292,7 +291,7 @@ export const HospitalRequestDashboard = () => {
           hospital_id: data.hospitalId,
           blood_type: data.bloodType,
           units: parseInt(data.units),
-          priority: data.priority,
+          priority: data.priority as PriorityLevel, // Cast to ensure type compatibility
           status: 'pending',
           request_date: new Date().toISOString(),
           notes: data.notes,
@@ -519,6 +518,7 @@ export const HospitalRequestDashboard = () => {
       
       if (success) {
         setShowDonorMatching(false);
+        toast.success("Notifications sent to selected donors");
       }
     } catch (error) {
       console.error("Error notifying donors:", error);

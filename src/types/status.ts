@@ -23,3 +23,9 @@ export type BloodRequestStatus = 'pending' | 'approved' | 'fulfilled' | 'cancell
 
 // Hospital types
 export type HospitalStatus = 'active' | 'inactive';
+
+// Blood types
+export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
+// Priority levels for blood requests
+export type PriorityLevel = 'low' | 'medium' | 'high' | 'critical';
