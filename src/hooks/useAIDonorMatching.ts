@@ -16,8 +16,8 @@ export interface MatchedDonor {
   eligibleToNotify: boolean;
   email?: string;
   phone?: string;
-  score: number; // Adding score property needed by HospitalRequestDashboard
-  eligibilityLevel: 'high' | 'medium' | 'low'; // Adding eligibility level property
+  score: number;
+  eligibilityLevel: 'high' | 'medium' | 'low';
 }
 
 export interface DonorMatchingParams {
@@ -25,7 +25,7 @@ export interface DonorMatchingParams {
   location?: {
     latitude: number;
     longitude: number;
-  } | string; // Allow string for backward compatibility
+  };
   unitsNeeded: number;
   excludeDonorIds?: string[];
 }
@@ -222,7 +222,7 @@ export function useAIDonorMatching() {
   // Add the notifyDonors function that's being used in HospitalRequestDashboard
   const notifyDonors = async (donorIds: string[], requestDetails: {
     requestId: string;
-    bloodType: string;
+    bloodType: BloodType;
     units: number;
     urgency: string;
     hospitalName: string;
@@ -239,11 +239,14 @@ export function useAIDonorMatching() {
         status: 'sent'
       }));
       
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notifications);
-        
-      if (error) throw error;
+      // Insert notifications one by one instead of as an array
+      for (const notification of notifications) {
+        const { error } = await supabase
+          .from('notifications')
+          .insert(notification);
+          
+        if (error) throw error;
+      }
       
       toast.success(`Notification sent to ${donorIds.length} donors`, {
         description: "Donors will be notified about this urgent request."
@@ -264,6 +267,7 @@ export function useAIDonorMatching() {
     notifyDonors,
     matchedDonors,
     isLoading,
+    isMatching: isLoading,
     error
   };
 }

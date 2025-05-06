@@ -258,10 +258,10 @@ export const HospitalRequestDashboard = () => {
         // Find the hospital name
         const hospital = hospitals.find(h => h.id === data.hospitalId);
         
-        // Fix: Convert hospital name to a location object with dummy coordinates
+        // Use proper location object with coordinates
         await findMatchingDonors({
-          bloodType: data.bloodType,
-          location: { latitude: 0, longitude: 0 }, // Use dummy coordinates instead of string
+          bloodType: data.bloodType as BloodType,
+          location: { latitude: 0, longitude: 0 },
           unitsNeeded: parseInt(data.units)
         });
         
@@ -387,7 +387,7 @@ export const HospitalRequestDashboard = () => {
   const handleFindDonors = (request: BloodRequest) => {
     findMatchingDonors({
       bloodType: request.blood_type,
-      location: { latitude: 0, longitude: 0 }, // Fix: Use dummy coordinates instead of string
+      location: { latitude: 0, longitude: 0 },
       unitsNeeded: request.units,
     });
     
@@ -457,7 +457,7 @@ export const HospitalRequestDashboard = () => {
     if (!request) return;
     
     try {
-      // Use the notifyDonors function from the hook
+      // Use the notifyDonors function from the hook with proper blood type
       const success = await notifyDonors(selectedDonorIds, {
         requestId: request.id,
         bloodType: request.blood_type,
@@ -912,7 +912,7 @@ export const HospitalRequestDashboard = () => {
                         const request = requests.find(r => r.id === selectedRequest)!;
                         findMatchingDonors({
                           bloodType: request.blood_type,
-                          location: { latitude: 0, longitude: 0 }, // Fix: Use dummy coordinates instead of string
+                          location: { latitude: 0, longitude: 0 },
                           unitsNeeded: request.units,
                         });
                         setShowDonorMatching(true);
