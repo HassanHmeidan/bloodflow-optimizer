@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -51,11 +50,9 @@ import {
 import { cn } from '@/lib/utils';
 import { BloodRequestStatus, BloodType, PriorityLevel } from '@/types/status';
 
-// Define blood types directly
-const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-
-// Define priority levels with both string array and display mapping
-const PRIORITY_LEVELS: PriorityLevel[] = ["low", "medium", "high", "critical"];
+// Define blood types and priority levels for display purposes
+const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const PRIORITY_LEVELS = ["low", "medium", "high", "critical"];
 
 // Priority display mapping for UI
 const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
@@ -104,7 +101,7 @@ const requestFormSchema = z.object({
   hospitalId: z.string({
     required_error: "Please select a hospital.",
   }),
-  bloodType: z.enum(BLOOD_TYPES, {
+  bloodType: z.enum(BLOOD_TYPES as [string, ...string[]], {
     required_error: "Please select a blood type.",
   }),
   units: z.string().refine((val) => {
@@ -113,7 +110,7 @@ const requestFormSchema = z.object({
   }, {
     message: "Please enter a valid number of units.",
   }),
-  priority: z.enum(PRIORITY_LEVELS, {
+  priority: z.enum(PRIORITY_LEVELS as [string, ...string[]], {
     required_error: "Please select a priority level.",
   }),
   requiredBy: z.date({
@@ -136,9 +133,9 @@ interface BloodRequest {
   id: string;
   hospital_id: string;
   hospital_name: string;
-  blood_type: string;
+  blood_type: BloodType;
   units: number;
-  priority: string;
+  priority: PriorityLevel;
   status: BloodRequestStatus;
   request_date: string;
   approval_date?: string;
@@ -156,7 +153,7 @@ export const HospitalRequestDashboard = () => {
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use explicit casting to break any circular type references
+  // Break the circular dependency with a type assertion
   const donorMatching = useAIDonorMatching() as unknown as DonorMatchingHook;
   const { 
     findMatchingDonors, 
@@ -218,7 +215,7 @@ export const HospitalRequestDashboard = () => {
           return {
             ...request,
             hospital_name: hospital?.name || 'Unknown Hospital',
-            blood_type: request.blood_type as BloodTypeValue,
+            blood_type: request.blood_type as BloodType,
             priority: request.priority as PriorityLevel,
             status: request.status as BloodRequestStatus
           } as BloodRequest;
@@ -289,9 +286,9 @@ export const HospitalRequestDashboard = () => {
         .from('blood_requests')
         .insert({
           hospital_id: data.hospitalId,
-          blood_type: data.bloodType,
+          blood_type: data.bloodType as BloodType,
           units: parseInt(data.units),
-          priority: data.priority as PriorityLevel, // Cast to ensure type compatibility
+          priority: data.priority as PriorityLevel,
           status: 'pending',
           request_date: new Date().toISOString(),
           notes: data.notes,
@@ -627,7 +624,7 @@ export const HospitalRequestDashboard = () => {
                           <SelectContent>
                             {PRIORITY_LEVELS.map((priority) => (
                               <SelectItem key={priority} value={priority}>
-                                {PRIORITY_DISPLAY[priority]}
+                                {PRIORITY_DISPLAY[priority as PriorityLevel]}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -925,160 +922,3 @@ export const HospitalRequestDashboard = () => {
                   />
                   
                   {requests.find(r => r.id === selectedRequest)!.notes && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                      <h3 className="font-medium mb-2">Notes</h3>
-                      <p className="text-sm">{requests.find(r => r.id === selectedRequest)!.notes}</p>
-                    </div>
-                  )}
-                  
-                  <div className="mt-6 flex justify-between">
-                    {requests.find(r => r.id === selectedRequest)!.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => handleApproveRequest(selectedRequest)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Approve Request
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          className="border-red-600 text-red-600 hover:bg-red-50"
-                          onClick={() => handleRejectRequest(selectedRequest)}
-                        >
-                          Reject Request
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {requests.find(r => r.id === selectedRequest)!.status === 'approved' && (
-                      <Button 
-                        onClick={() => handleFulfillRequest(selectedRequest)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        Mark as Fulfilled
-                      </Button>
-                    )}
-                    
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setSelectedRequest(null)}
-                    >
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* AI Donor Matching Modal */}
-      {showDonorMatching && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => setShowDonorMatching(false)}
-        >
-          <div 
-            className="bg-white rounded-lg max-w-5xl w-full max-h-[80vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-bold">AI Donor Matching</h2>
-                  <p className="text-muted-foreground">
-                    Finding optimal donors based on blood type, location, and eligibility
-                  </p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-gray-400"
-                  onClick={() => setShowDonorMatching(false)}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {isMatching ? (
-                <div className="py-12 flex flex-col items-center justify-center">
-                  <div className="animate-spin h-12 w-12 border-2 border-bloodRed-600 rounded-full border-t-transparent mb-4"></div>
-                  <h3 className="text-lg font-medium">Finding optimal donors...</h3>
-                  <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
-                </div>
-              ) : matchedDonors.length > 0 ? (
-                <div>
-                  <p className="mb-4">
-                    Found <span className="font-medium">{matchedDonors.length}</span> potential donors for this request.
-                    Select donors to notify:
-                  </p>
-                  
-                  <div className="border rounded-md mb-6 overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-muted/50 text-sm">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium">Donor</th>
-                          <th className="px-4 py-3 text-left font-medium">Blood Type</th>
-                          <th className="px-4 py-3 text-left font-medium">Last Donation</th>
-                          <th className="px-4 py-3 text-left font-medium">Distance</th>
-                          <th className="px-4 py-3 text-left font-medium">Match Score</th>
-                          <th className="px-4 py-3 text-left font-medium">Eligibility</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {matchedDonors.map(donor => renderDonorRow(donor))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowDonorMatching(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      className="bg-bloodRed-600 hover:bg-bloodRed-700"
-                      onClick={() => handleNotifySelectedDonors(matchedDonors.map(d => d.id))}
-                    >
-                      <Bell className="mr-2 h-4 w-4" /> 
-                      Notify Selected Donors
-                    </Button>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className="py-8 text-center">
-                  <CircleAlert className="h-12 w-12 mx-auto text-red-600 mb-2" />
-                  <h3 className="text-lg font-medium">Error Finding Donors</h3>
-                  <p className="text-muted-foreground mt-1">{error}</p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => setShowDonorMatching(false)}
-                  >
-                    Close
-                  </Button>
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <CircleAlert className="h-12 w-12 mx-auto text-yellow-600 mb-2" />
-                  <h3 className="text-lg font-medium">No Matching Donors</h3>
-                  <p className="text-muted-foreground mt-1">
-                    We couldn't find any eligible donors matching your criteria.
-                  </p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => setShowDonorMatching(false)}
-                  >
-                    Close
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
