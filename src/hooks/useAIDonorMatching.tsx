@@ -1,7 +1,8 @@
+
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { MatchedDonor, DonorMatchingParams, DonorMatchingHook } from '@/types/status';
+import { MatchedDonor, DonorMatchingParams, DonorMatchingHook, BloodType, PriorityLevel } from '@/types/status';
 
 export function useAIDonorMatching(): DonorMatchingHook {
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +47,7 @@ export function useAIDonorMatching(): DonorMatchingHook {
       }
       
       // Get donor profiles with contact information
-      const donorDetails = [];
+      const donorDetails: MatchedDonor[] = [];
       for (const donor of eligibleDonors) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -97,7 +98,7 @@ export function useAIDonorMatching(): DonorMatchingHook {
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
             email: profile.email || '',
             phone: profile.phone || '',
-            bloodType: donor.blood_type,
+            bloodType: donor.blood_type as BloodType,
             lastDonation: donor.last_donation_date,
             distance: mockDistance,
             score: score,
@@ -144,9 +145,9 @@ export function useAIDonorMatching(): DonorMatchingHook {
   // Helper function to notify selected donors
   const notifyDonors = async (donorIds: string[], requestDetails: {
     requestId: string;
-    bloodType: string;
+    bloodType: BloodType;
     units: number;
-    urgency: string;
+    urgency: PriorityLevel;
     hospitalName: string;
   }): Promise<boolean> => {
     try {
