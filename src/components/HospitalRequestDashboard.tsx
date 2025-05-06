@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -31,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import * as z from "zod";
 import { format } from "date-fns";
 import { supabase } from '@/lib/supabase';
 import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
@@ -52,26 +53,19 @@ import { cn } from '@/lib/utils';
 import { BloodRequestStatus } from '@/types/status';
 import type { Database } from '@/integrations/supabase/types';
 
-// Define BloodType from the Database type
-type BloodType = Database['public']['Enums']['blood_type'];
-
-// Import MatchedDonor type directly to avoid circular references
-import { MatchedDonor } from '@/hooks/useAIDonorMatching';
-
-// Use const array for blood types
+// Define blood types directly without relying on Database type
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+type BloodTypeValue = typeof BLOOD_TYPES[number];
 
 // Define priority levels
-const PRIORITY_LEVELS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "critical", label: "Critical" }
-] as const;
+const PRIORITY_LEVELS = ["low", "medium", "high", "critical"] as const;
+type PriorityLevel = typeof PRIORITY_LEVELS[number];
 
-type PriorityLevel = "low" | "medium" | "high" | "critical";
+// Import the MatchedDonor type but avoid circular references
+// We're using the type but not depending on its implementation
+import type { MatchedDonor } from '@/hooks/useAIDonorMatching';
 
-// Define the form schema with explicit types to avoid deep instantiation
+// Define the form schema with explicit types
 const requestFormSchema = z.object({
   hospitalId: z.string({
     required_error: "Please select a hospital.",
@@ -85,7 +79,7 @@ const requestFormSchema = z.object({
   }, {
     message: "Please enter a valid number of units.",
   }),
-  priority: z.enum(["low", "medium", "high", "critical"], {
+  priority: z.enum(PRIORITY_LEVELS, {
     required_error: "Please select a priority level.",
   }),
   requiredBy: z.date({
@@ -94,21 +88,30 @@ const requestFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Explicitly define the form values type
-type RequestFormValues = z.infer<typeof requestFormSchema>;
+// Explicitly define the form values type without using z.infer
+// This avoids potential deep instantiation issues
+type RequestFormValues = {
+  hospitalId: string;
+  bloodType: BloodTypeValue;
+  units: string;
+  priority: PriorityLevel;
+  requiredBy: Date;
+  notes?: string;
+};
 
-// Define simple interface for Hospital
+// Define Hospital interface
 interface Hospital {
   id: string;
   name: string;
 }
 
-// Define BloodRequest explicitly without using types that could cause circular references
+// Define BloodRequest interface with explicit types
+// Avoiding dependencies on other complex types
 interface BloodRequest {
   id: string;
   hospital_id: string;
   hospital_name: string;
-  blood_type: BloodType;
+  blood_type: BloodTypeValue;
   units: number;
   priority: PriorityLevel;
   status: BloodRequestStatus;
@@ -127,8 +130,11 @@ export const HospitalRequestDashboard = () => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Use the hook without type instantiations
   const { findMatchingDonors, matchedDonors, notifyDonors, isLoading: isMatching, error } = useAIDonorMatching();
   
+  // Use the form with explicit types
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestFormSchema),
     defaultValues: {
@@ -272,7 +278,7 @@ export const HospitalRequestDashboard = () => {
         
         // Use proper location object with coordinates
         await findMatchingDonors({
-          bloodType: data.bloodType as BloodType,
+          bloodType: data.bloodType,
           location: { latitude: 0, longitude: 0 },
           unitsNeeded: parseInt(data.units)
         });
