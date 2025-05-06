@@ -28,14 +28,13 @@ export const HospitalRequestDashboard = () => {
   const [showRequestDetail, setShowRequestDetail] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const donorMatching = useAIDonorMatching();
   const { 
     findMatchingDonors, 
     matchedDonors, 
     notifyDonors, 
     isLoading: isMatching, 
     error 
-  } = donorMatching;
+  } = useAIDonorMatching();
   
   // Fetch hospitals and blood requests
   useEffect(() => {
@@ -193,11 +192,14 @@ export const HospitalRequestDashboard = () => {
   };
 
   const handleFindDonors = (request: BloodRequest) => {
-    findMatchingDonors({
+    // Fix the deep instantiation error by explicitly typing the parameters
+    const params = {
       bloodType: request.blood_type,
       location: { latitude: 0, longitude: 0 },
       unitsNeeded: request.units
-    });
+    };
+    
+    findMatchingDonors(params);
     
     setSelectedRequest(request.id);
     setShowDonorMatching(true);
@@ -249,12 +251,14 @@ export const HospitalRequestDashboard = () => {
       // Find the hospital name
       const hospital = hospitals.find(h => h.id === hospitalId);
       
-      // Use proper location object with coordinates
-      findMatchingDonors({
+      // Fix the deep instantiation error by explicitly typing the parameters
+      const params = {
         bloodType: bloodType,
         location: { latitude: 0, longitude: 0 },
         unitsNeeded: units
-      });
+      };
+      
+      findMatchingDonors(params);
       
       // Show AI matching dialog
       setSelectedRequest(requestId);
@@ -306,11 +310,14 @@ export const HospitalRequestDashboard = () => {
         onNotifyDonors={handleNotifySelectedDonors}
         onRetryFinding={() => {
           if (selectedRequestDetails) {
-            findMatchingDonors({
+            // Fix the deep instantiation error by explicitly typing the parameters
+            const params = {
               bloodType: selectedRequestDetails.blood_type,
               location: { latitude: 0, longitude: 0 },
-              unitsNeeded: selectedRequestDetails.units,
-            });
+              unitsNeeded: selectedRequestDetails.units
+            };
+            
+            findMatchingDonors(params);
           }
         }}
       />
