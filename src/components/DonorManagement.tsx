@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,11 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, UserPlus, UserMinus, UserCheck, UserX } from "lucide-react";
+import { UserPlus, UserMinus, UserCheck, UserX, ChevronsUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { DonorStatus, AppointmentStatus } from "@/types/status";
+import { DonorStatus } from "@/types/status";
+
+// Define blood types
+const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 export const DonorManagement = () => {
   const [name, setName] = useState<string>("");
@@ -19,7 +23,7 @@ export const DonorManagement = () => {
   const [donorId, setDonorId] = useState<string>("");
   const [isEligible, setIsEligible] = useState<boolean>(false);
   const [medicalHistory, setMedicalHistory] = useState<string>("");
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<DonorStatus>("active");
   const queryClient = useQueryClient();
 
   // Fetch donors
@@ -34,12 +38,7 @@ export const DonorManagement = () => {
           last_donation_date,
           eligible_to_donate,
           medical_history,
-          user_id,
-          profiles (
-            first_name,
-            last_name,
-            email
-          )
+          user_id
         `);
         
       if (error) {
@@ -48,17 +47,35 @@ export const DonorManagement = () => {
         return [];
       }
       
-      return data.map(donor => ({
-        id: donor.id,
-        name: donor.profiles?.first_name + ' ' + donor.profiles?.last_name,
-        email: donor.profiles?.email,
-        bloodType: donor.blood_type,
-        lastDonationDate: donor.last_donation_date ? format(new Date(donor.last_donation_date), 'MMMM dd, yyyy') : 'Never',
-        eligibleToDonate: donor.eligible_to_donate,
-        medicalHistory: donor.medical_history,
-        userId: donor.user_id,
-        status: donor.eligible_to_donate ? 'active' : 'inactive' // derive status from eligibility
-      }));
+      // Get user details separately
+      const transformedDonors = [];
+      
+      for (const donor of data) {
+        // Get user profile
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, email')
+          .eq('id', donor.user_id)
+          .single();
+          
+        if (userError) {
+          console.error("Error fetching user data:", userError);
+        }
+        
+        transformedDonors.push({
+          id: donor.id,
+          name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}` : 'Unknown',
+          email: userData ? userData.email : 'Unknown',
+          bloodType: donor.blood_type,
+          lastDonationDate: donor.last_donation_date ? format(new Date(donor.last_donation_date), 'MMMM dd, yyyy') : 'Never',
+          eligibleToDonate: donor.eligible_to_donate,
+          medicalHistory: donor.medical_history,
+          userId: donor.user_id,
+          status: donor.eligible_to_donate ? 'active' as DonorStatus : 'inactive' as DonorStatus
+        });
+      }
+      
+      return transformedDonors;
     }
   });
 
@@ -88,7 +105,7 @@ export const DonorManagement = () => {
         .from('donor_profiles')
         .insert({
           user_id: existingUser.id,
-          blood_type: bloodType,
+          blood_type: bloodType as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
           eligible_to_donate: isEligible,
           medical_history: medicalHistory ? JSON.parse(medicalHistory) : null
         })
@@ -128,7 +145,7 @@ export const DonorManagement = () => {
       const { error } = await supabase
         .from('donor_profiles')
         .update({
-          blood_type: bloodType,
+          blood_type: bloodType as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
           eligible_to_donate: isEligible,
           medical_history: medicalHistory ? JSON.parse(medicalHistory) : null
         })
@@ -246,14 +263,9 @@ export const DonorManagement = () => {
                 <SelectValue placeholder="Select blood type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="A+">A+</SelectItem>
-                <SelectItem value="A-">A-</SelectItem>
-                <SelectItem value="B+">B+</SelectItem>
-                <SelectItem value="B-">B-</SelectItem>
-                <SelectItem value="AB+">AB+</SelectItem>
-                <SelectItem value="AB-">AB-</SelectItem>
-                <SelectItem value="O+">O+</SelectItem>
-                <SelectItem value="O-">O-</SelectItem>
+                {BLOOD_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -328,17 +340,25 @@ export const DonorManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{donor.bloodType}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{donor.lastDonationDate}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {donor.status === "pending" ? (
+                      {donor.status === "pending" && (
                         <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                          <Clock className="mr-1.5 h-4 w-4" />
+                          <ChevronsUpDown className="mr-1.5 h-4 w-4" />
                           Pending
                         </span>
-                      ) : (donor.status as unknown) === "active" || (donor.status as unknown) === "inactive" ? (
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${donor.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                          {donor.status === "active" ? <UserCheck className="mr-1.5 h-4 w-4" /> : <UserX className="mr-1.5 h-4 w-4" />}
-                          {donor.status === "active" ? "Active" : "Inactive"}
+                      )}
+                      {donor.status === "active" && (
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                          <UserCheck className="mr-1.5 h-4 w-4" />
+                          Active
                         </span>
-                      ) : (
+                      )}
+                      {donor.status === "inactive" && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                          <UserX className="mr-1.5 h-4 w-4" />
+                          Inactive
+                        </span>
+                      )}
+                      {donor.status !== "pending" && donor.status !== "active" && donor.status !== "inactive" && (
                         <span>{donor.status}</span>
                       )}
                     </td>
@@ -363,4 +383,4 @@ export const DonorManagement = () => {
   );
 };
 
-import { CalendarIcon, Check, Clock, Hospital } from "lucide-react";
+export default DonorManagement;

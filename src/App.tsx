@@ -17,6 +17,7 @@ import BloodRequestsPage from "./pages/BloodRequestsPage";
 import { Chatbot } from "./components/Chatbot";
 import NotificationHistoryPage from "./pages/NotificationHistoryPage";
 import { SupabaseProvider } from "./contexts/SupabaseContext";
+import BloodDonationDashboard from "./pages/BloodDonationDashboard";
 
 // This frontend connects to a Python backend API
 // The backend would typically be built with frameworks like:
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/faqs" element={<About />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/blood-dashboard" element={<BloodDonationDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           {/* The Chatbot is placed here to ensure it's available on all pages */}

@@ -48,7 +48,25 @@ export function usePredictiveDemand() {
     };
 
     fetchDemandData();
+
+    // Set up realtime subscription for predictive demand updates
+    const channel = supabase
+      .channel('predictive-demand-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'predictive_demand'
+      }, () => {
+        fetchDemandData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { demandForecasts, loading, error };
 }
+
+export default usePredictiveDemand;
