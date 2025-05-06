@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -34,7 +35,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { supabase } from '@/lib/supabase';
-import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
+import { useAIDonorMatching, type MatchedDonor } from '@/hooks/useAIDonorMatching';
 import { BloodRequestFlow } from '@/components/BloodRequestFlow';
 import { 
   CalendarIcon, 
@@ -115,7 +116,7 @@ export const HospitalRequestDashboard = () => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { findMatchingDonors, matchedDonors, isLoading: isMatching } = useAIDonorMatching();
+  const { findMatchingDonors, matchedDonors, isLoading: isMatching, error } = useAIDonorMatching();
   
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestFormSchema),
@@ -903,8 +904,8 @@ export const HospitalRequestDashboard = () => {
                 <div>
                   <h2 className="text-xl font-bold">AI Donor Matching</h2>
                   <p className="text-muted-foreground">
-                    {requests.find(r => r.id === selectedRequest)?.hospital_name} • 
-                    {requests.find(r => r.id === selectedRequest)?.blood_type} • 
+                    {requests.find(r => r.id === selectedRequest)?.hospital_name} • {' '}
+                    {requests.find(r => r.id === selectedRequest)?.blood_type} • {' '}
                     {requests.find(r => r.id === selectedRequest)?.units} units
                   </p>
                 </div>
@@ -914,4 +915,115 @@ export const HospitalRequestDashboard = () => {
                   className="text-gray-400"
                   onClick={() => setShowDonorMatching(false)}
                 >
-                  <XCircle className="h-4 w-4
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {isMatching ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin h-10 w-10 border-2 border-bloodRed-600 rounded-full border-t-transparent mb-4"></div>
+                  <p className="text-center text-muted-foreground">Finding compatible donors...</p>
+                </div>
+              ) : (
+                <div>
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-6">
+                      <p className="font-medium">Error</p>
+                      <p className="text-sm">{error}</p>
+                    </div>
+                  )}
+                  
+                  {matchedDonors.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CircleAlert className="h-12 w-12 mx-auto text-amber-500 mb-3" />
+                      <h3 className="text-lg font-medium">No compatible donors found</h3>
+                      <p className="text-muted-foreground mt-2">
+                        Try expanding your search criteria or check if there are any available donors for this blood type.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mb-4">
+                        <p className="font-medium">Found {matchedDonors.length} potential donors.</p>
+                        <p className="text-sm text-muted-foreground">
+                          Select donors to notify about this urgent request.
+                        </p>
+                      </div>
+                      
+                      <div className="border rounded-md overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="px-4 py-3 text-left">Name</th>
+                              <th className="px-4 py-3 text-left">Blood Type</th>
+                              <th className="px-4 py-3 text-left">Last Donation</th>
+                              <th className="px-4 py-3 text-left">Distance</th>
+                              <th className="px-4 py-3 text-left">Score</th>
+                              <th className="px-4 py-3 text-left">Eligibility</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {matchedDonors.map((donor) => (
+                              <tr key={donor.id} className="border-t hover:bg-muted/50">
+                                <td className="px-4 py-3">
+                                  <div className="font-medium">{donor.name}</div>
+                                  {donor.email && (
+                                    <div className="text-xs text-muted-foreground">{donor.email}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="font-mono">{donor.bloodType}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {donor.lastDonation === 'Never' 
+                                    ? <span className="text-green-600">Never donated</span> 
+                                    : new Date(donor.lastDonation).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {donor.distance ? `${donor.distance} km` : 'Unknown'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {donor.score}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {donor.eligibilityLevel === 'high' && (
+                                    <span className="bg-green-100 text-green-800 text-xs py-1 px-2 rounded-full">High</span>
+                                  )}
+                                  {donor.eligibilityLevel === 'medium' && (
+                                    <span className="bg-yellow-100 text-yellow-800 text-xs py-1 px-2 rounded-full">Medium</span>
+                                  )}
+                                  {donor.eligibilityLevel === 'low' && (
+                                    <span className="bg-red-100 text-red-800 text-xs py-1 px-2 rounded-full">Low</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <div className="mt-6 flex justify-between">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDonorMatching(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                          onClick={() => handleNotifySelectedDonors(matchedDonors.map(d => d.id))}
+                        >
+                          Notify All Donors
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
