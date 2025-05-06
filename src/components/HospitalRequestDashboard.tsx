@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -384,6 +383,72 @@ export const HospitalRequestDashboard = () => {
     }
   };
 
+  const handleFindDonors = (request: BloodRequest) => {
+    findMatchingDonors({
+      bloodType: request.blood_type,
+      location: { latitude: 0, longitude: 0 }, // Dummy coordinates as placeholder
+      unitsNeeded: request.units,
+    });
+    
+    setSelectedRequest(request.id);
+    setShowDonorMatching(true);
+  };
+
+  const renderDonorMatchingButton = (request: BloodRequest) => {
+    return (
+      <Button 
+        size="sm" 
+        variant="outline"
+        className="flex items-center gap-1"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleFindDonors(request);
+        }}
+      >
+        <Users className="h-3.5 w-3.5" />
+        Find Donors
+      </Button>
+    );
+  };
+
+  const renderDonorRow = (donor: MatchedDonor) => {
+    return (
+      <tr key={donor.id} className="border-t hover:bg-muted/50">
+        <td className="px-4 py-3">
+          <div className="font-medium">{donor.name}</div>
+          {donor.email && (
+            <div className="text-xs text-muted-foreground">{donor.email}</div>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <span className="font-mono">{donor.bloodType}</span>
+        </td>
+        <td className="px-4 py-3">
+          {donor.lastDonation === 'Never' 
+            ? <span className="text-green-600">Never donated</span> 
+            : donor.lastDonation ? new Date(donor.lastDonation).toLocaleDateString() : 'Unknown'}
+        </td>
+        <td className="px-4 py-3">
+          {donor.distance ? `${donor.distance} km` : 'Unknown'}
+        </td>
+        <td className="px-4 py-3">
+          {donor.score}
+        </td>
+        <td className="px-4 py-3">
+          {donor.eligibilityLevel === 'high' && (
+            <span className="bg-green-100 text-green-800 text-xs py-1 px-2 rounded-full">High</span>
+          )}
+          {donor.eligibilityLevel === 'medium' && (
+            <span className="bg-yellow-100 text-yellow-800 text-xs py-1 px-2 rounded-full">Medium</span>
+          )}
+          {donor.eligibilityLevel === 'low' && (
+            <span className="bg-red-100 text-red-800 text-xs py-1 px-2 rounded-full">Low</span>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
   const handleNotifySelectedDonors = async (selectedDonorIds: string[]) => {
     if (!selectedRequest) return;
     
@@ -757,24 +822,7 @@ export const HospitalRequestDashboard = () => {
                             </Button>
                           )}
                           {(request.priority === 'high' || request.priority === 'critical') && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="flex items-center gap-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedRequest(request.id);
-                                findMatchingDonors({
-                                  bloodType: request.blood_type,
-                                  location: request.hospital_name,
-                                  unitsNeeded: request.units,
-                                });
-                                setShowDonorMatching(true);
-                              }}
-                            >
-                              <Users className="h-3.5 w-3.5" />
-                              Find Donors
-                            </Button>
+                            renderDonorMatchingButton(request)
                           )}
                         </div>
                       </div>
@@ -863,7 +911,7 @@ export const HospitalRequestDashboard = () => {
                         const request = requests.find(r => r.id === selectedRequest)!;
                         findMatchingDonors({
                           bloodType: request.blood_type,
-                          location: request.hospital_name,
+                          location: { latitude: 0, longitude: 0 }, // Dummy coordinates as placeholder
                           unitsNeeded: request.units,
                         });
                         setShowDonorMatching(true);
@@ -953,41 +1001,7 @@ export const HospitalRequestDashboard = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {matchedDonors.map((donor) => (
-                              <tr key={donor.id} className="border-t hover:bg-muted/50">
-                                <td className="px-4 py-3">
-                                  <div className="font-medium">{donor.name}</div>
-                                  {donor.email && (
-                                    <div className="text-xs text-muted-foreground">{donor.email}</div>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="font-mono">{donor.bloodType}</span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  {donor.lastDonation === 'Never' 
-                                    ? <span className="text-green-600">Never donated</span> 
-                                    : new Date(donor.lastDonation).toLocaleDateString()}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {donor.distance ? `${donor.distance} km` : 'Unknown'}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {donor.score}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {donor.eligibilityLevel === 'high' && (
-                                    <span className="bg-green-100 text-green-800 text-xs py-1 px-2 rounded-full">High</span>
-                                  )}
-                                  {donor.eligibilityLevel === 'medium' && (
-                                    <span className="bg-yellow-100 text-yellow-800 text-xs py-1 px-2 rounded-full">Medium</span>
-                                  )}
-                                  {donor.eligibilityLevel === 'low' && (
-                                    <span className="bg-red-100 text-red-800 text-xs py-1 px-2 rounded-full">Low</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
+                            {matchedDonors.map(renderDonorRow)}
                           </tbody>
                         </table>
                       </div>

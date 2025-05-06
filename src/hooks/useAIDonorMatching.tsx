@@ -17,7 +17,7 @@ export type MatchedDonor = {
 
 export type DonorMatchingParams = {
   bloodType: string;
-  location?: string;
+  location?: { latitude: number; longitude: number } | string;
   unitsNeeded: number;
   excludeDonorIds?: string[];
 };
