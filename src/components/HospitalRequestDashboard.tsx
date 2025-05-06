@@ -116,7 +116,7 @@ export const HospitalRequestDashboard = () => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { findMatchingDonors, matchedDonors, isLoading: isMatching, error } = useAIDonorMatching();
+  const { findMatchingDonors, matchedDonors, notifyDonors, isLoading: isMatching, error } = useAIDonorMatching();
   
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestFormSchema),
@@ -391,28 +391,18 @@ export const HospitalRequestDashboard = () => {
     if (!request) return;
     
     try {
-      // Create notification records for each selected donor
-      const notifications = selectedDonorIds.map(donorId => ({
-        recipient_id: donorId,
-        subject: `Urgent Blood Donation Request: ${request.blood_type}`,
-        message: `${request.hospital_name} urgently needs ${request.units} units of ${request.blood_type} blood. Please consider donating as soon as possible.`,
-        event_type: 'blood_request',
-        blood_type: request.blood_type,
+      // Use the notifyDonors function from the hook
+      const success = await notifyDonors(selectedDonorIds, {
+        requestId: request.id,
+        bloodType: request.blood_type,
         units: request.units,
-        status: 'sent'
-      }));
-      
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notifications);
-        
-      if (error) throw error;
-      
-      toast.success(`Notification sent to ${selectedDonorIds.length} donors`, {
-        description: "Donors will be notified about this urgent request."
+        urgency: request.priority,
+        hospitalName: request.hospital_name
       });
       
-      setShowDonorMatching(false);
+      if (success) {
+        setShowDonorMatching(false);
+      }
     } catch (error) {
       console.error("Error notifying donors:", error);
       toast.error("Failed to notify donors", {
@@ -1027,3 +1017,5 @@ export const HospitalRequestDashboard = () => {
     </div>
   );
 };
+
+export default HospitalRequestDashboard;

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -7,7 +8,7 @@ import DonorRegistration from "@/components/DonorRegistration";
 import { DonorManagement } from "@/components/DonorManagement";
 import { BloodInventoryTracking } from "@/components/BloodInventoryTracking";
 import LiveTrackingDashboard from "@/components/LiveTrackingDashboard";
-import HospitalRequestDashboard from "@/components/HospitalRequestDashboard";
+import { HospitalRequestDashboard } from "@/components/HospitalRequestDashboard";
 import { usePredictiveDemand } from "@/hooks/usePredictiveDemand";
 import { Building, CalendarCheck, Clock, Droplet, LineChart, Map, Package, UserCheck } from "lucide-react";
 
