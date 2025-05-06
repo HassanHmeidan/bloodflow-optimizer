@@ -8,10 +8,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { BloodType } from '@/types/status';
-
-// Define blood types
-const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+import { BloodType, BLOOD_TYPES } from '@/types/status';
 
 interface BloodAvailabilityProps {
   // Optional inventory data prop that would come from an API call

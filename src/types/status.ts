@@ -30,12 +30,16 @@ export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 // Priority levels for blood requests
 export type PriorityLevel = 'low' | 'medium' | 'high' | 'critical';
 
+// Blood type and priority level arrays for zod validation
+export const BLOOD_TYPES: [BloodType, ...BloodType[]] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export const PRIORITY_LEVELS: [PriorityLevel, ...PriorityLevel[]] = ["low", "medium", "high", "critical"] as const;
+
 // Request form values type
 export type RequestFormValues = {
   hospitalId: string;
-  bloodType: BloodType; // Changed from string to BloodType
+  bloodType: BloodType; 
   units: string;
-  priority: PriorityLevel; // Changed from string to PriorityLevel
+  priority: PriorityLevel; 
   requiredBy: Date;
   notes?: string;
 };

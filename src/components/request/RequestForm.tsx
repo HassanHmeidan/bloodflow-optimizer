@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,13 +39,11 @@ import {
   Hospital,
   BloodType,
   PriorityLevel,
-  RequestFormValues
+  RequestFormValues,
+  BLOOD_TYPES,
+  PRIORITY_LEVELS
 } from '@/types/status';
 import { cn } from '@/lib/utils';
-
-// Define blood types and priority levels for display purposes
-const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const PRIORITY_LEVELS: PriorityLevel[] = ["low", "medium", "high", "critical"];
 
 // Priority display mapping for UI
 const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
