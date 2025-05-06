@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -10,7 +9,7 @@ import { BloodInventoryTracking } from "@/components/BloodInventoryTracking";
 import LiveTrackingDashboard from "@/components/LiveTrackingDashboard";
 import HospitalRequestDashboard from "@/components/HospitalRequestDashboard";
 import { usePredictiveDemand } from "@/hooks/usePredictiveDemand";
-import { Buildings, CalendarCheck, Clock, Droplet, LineChart, Map, Package, UserCheck } from "lucide-react";
+import { Building, CalendarCheck, Clock, Droplet, LineChart, Map, Package, UserCheck } from "lucide-react";
 
 export const BloodDonationDashboard = () => {
   const [currentTab, setCurrentTab] = useState("overview");
@@ -45,7 +44,7 @@ export const BloodDonationDashboard = () => {
               <span className="hidden md:inline">Tracking</span>
             </TabsTrigger>
             <TabsTrigger value="requests" className="flex items-center gap-2">
-              <Buildings className="h-4 w-4" />
+              <Building className="h-4 w-4" />
               <span className="hidden md:inline">Requests</span>
             </TabsTrigger>
             <TabsTrigger value="register" className="flex items-center gap-2">

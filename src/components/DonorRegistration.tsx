@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -31,7 +30,9 @@ import { CalendarIcon, Check, User, UserCheck, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
-const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+type BloodType = typeof BLOOD_TYPES[number];
+
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"];
 
 // Define form schema with Zod
@@ -54,7 +55,7 @@ const donorFormSchema = z.object({
   gender: z.string({
     required_error: "Please select a gender.",
   }),
-  bloodType: z.string({
+  bloodType: z.enum(BLOOD_TYPES, {
     required_error: "Please select a blood type.",
   }),
   weight: z.string().refine((val) => {
@@ -86,7 +87,7 @@ export const DonorRegistration = () => {
       email: "",
       phone: "",
       gender: "",
-      bloodType: "",
+      bloodType: undefined,
       weight: "",
       previousDonation: "no",
       agreement: false,
@@ -97,50 +98,22 @@ export const DonorRegistration = () => {
     setIsSubmitting(true);
     
     try {
-      // First check if user already exists in profiles
-      const { data: existingProfile } = await supabase
+      // Generate a UUID for the new user - in a real app, this would be handled by auth
+      const userId = crypto.randomUUID();
+      
+      // Create a profile entry
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('email', values.email)
-        .single();
+        .insert({
+          id: userId,
+          first_name: values.firstName,
+          last_name: values.lastName,
+          email: values.email,
+          phone: values.phone,
+        })
+        .select();
       
-      let userId;
-      
-      if (existingProfile) {
-        userId = existingProfile.id;
-        
-        // Update the profile
-        await supabase
-          .from('profiles')
-          .update({
-            first_name: values.firstName,
-            last_name: values.lastName,
-            phone: values.phone,
-          })
-          .eq('id', userId);
-      } else {
-        // Create a new auth user first (this is a simplified approach)
-        // In a real app, this would be done through the auth signup flow
-        const { data: newProfile, error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            first_name: values.firstName,
-            last_name: values.lastName,
-            phone: values.phone,
-            email: values.email,
-          })
-          .select();
-        
-        if (profileError) throw profileError;
-        userId = newProfile[0].id;
-      }
-      
-      // Check if donor profile already exists
-      const { data: existingDonor } = await supabase
-        .from('donor_profiles')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
+      if (profileError) throw profileError;
       
       // Medical history in JSON format
       const medicalHistory = {
@@ -150,28 +123,18 @@ export const DonorRegistration = () => {
         medications: values.medications || "",
       };
       
-      if (existingDonor) {
-        // Update existing donor profile
-        await supabase
-          .from('donor_profiles')
-          .update({
-            blood_type: values.bloodType,
-            last_donation_date: values.lastDonationDate ? values.lastDonationDate.toISOString() : null,
-            medical_history: medicalHistory,
-          })
-          .eq('id', existingDonor.id);
-      } else {
-        // Create new donor profile
-        await supabase
-          .from('donor_profiles')
-          .insert({
-            user_id: userId,
-            blood_type: values.bloodType as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-",
-            last_donation_date: values.lastDonationDate ? values.lastDonationDate.toISOString() : null,
-            eligible_to_donate: true, // Set to true initially, will be verified by staff
-            medical_history: medicalHistory,
-          });
-      }
+      // Create donor profile
+      const { error: donorError } = await supabase
+        .from('donor_profiles')
+        .insert({
+          user_id: userId,
+          blood_type: values.bloodType,
+          last_donation_date: values.lastDonationDate ? values.lastDonationDate.toISOString() : null,
+          eligible_to_donate: true, // Set to true initially, will be verified by staff
+          medical_history: medicalHistory,
+        });
+      
+      if (donorError) throw donorError;
       
       toast.success("Registration successful!", {
         description: "Thank you for registering as a donor.",

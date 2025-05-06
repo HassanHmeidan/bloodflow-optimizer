@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -40,7 +39,7 @@ import { BloodRequestFlow } from '@/components/BloodRequestFlow';
 import { 
   CalendarIcon, 
   Clock, 
-  Buildings, 
+  Building, 
   Search, 
   CircleAlert, 
   CheckCircle2, 
@@ -52,19 +51,23 @@ import {
 import { cn } from '@/lib/utils';
 import { BloodRequestStatus } from '@/types/status';
 
-const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+type BloodType = typeof BLOOD_TYPES[number];
+
 const PRIORITY_LEVELS = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
   { value: "critical", label: "Critical" }
-];
+] as const;
+
+type PriorityLevel = "low" | "medium" | "high" | "critical";
 
 const requestFormSchema = z.object({
   hospitalId: z.string({
     required_error: "Please select a hospital.",
   }),
-  bloodType: z.string({
+  bloodType: z.enum(BLOOD_TYPES, {
     required_error: "Please select a blood type.",
   }),
   units: z.string().refine((val) => {
@@ -73,7 +76,7 @@ const requestFormSchema = z.object({
   }, {
     message: "Please enter a valid number of units.",
   }),
-  priority: z.string({
+  priority: z.enum(["low", "medium", "high", "critical"], {
     required_error: "Please select a priority level.",
   }),
   requiredBy: z.date({
@@ -93,9 +96,9 @@ interface BloodRequest {
   id: string;
   hospital_id: string;
   hospital_name: string;
-  blood_type: string;
+  blood_type: BloodType;
   units: number;
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: PriorityLevel;
   status: BloodRequestStatus;
   request_date: string;
   approval_date?: string;
@@ -112,7 +115,7 @@ export const HospitalRequestDashboard = () => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { findMatchingDonors, notifyDonors, matchedDonors, isMatching } = useAIDonorMatching();
+  const { findMatchingDonors, matchedDonors, isLoading: isMatching } = useAIDonorMatching();
   
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestFormSchema),
@@ -165,7 +168,10 @@ export const HospitalRequestDashboard = () => {
           return {
             ...request,
             hospital_name: hospital?.name || 'Unknown Hospital',
-          };
+            blood_type: request.blood_type as BloodType,
+            priority: request.priority as PriorityLevel,
+            status: request.status as BloodRequestStatus
+          } as BloodRequest;
         }));
         
         setRequests(requestsWithHospitals);
@@ -235,7 +241,7 @@ export const HospitalRequestDashboard = () => {
           hospital_id: data.hospitalId,
           blood_type: data.bloodType,
           units: parseInt(data.units),
-          priority: data.priority as 'low' | 'medium' | 'high' | 'critical',
+          priority: data.priority,
           status: 'pending',
           request_date: new Date().toISOString(),
           notes: data.notes,
@@ -254,8 +260,8 @@ export const HospitalRequestDashboard = () => {
         
         await findMatchingDonors({
           bloodType: data.bloodType,
-          units: parseInt(data.units),
-          urgency: data.priority as 'low' | 'medium' | 'high' | 'critical',
+          location: hospital?.name || "",
+          unitsNeeded: parseInt(data.units)
         });
         
         // Show AI matching dialog
@@ -383,19 +389,38 @@ export const HospitalRequestDashboard = () => {
     const request = requests.find(r => r.id === selectedRequest);
     if (!request) return;
     
-    const success = await notifyDonors(selectedDonorIds, {
-      requestId: request.id,
-      bloodType: request.blood_type,
-      units: request.units,
-      urgency: request.priority,
-      hospitalName: request.hospital_name,
-    });
-    
-    if (success) {
+    try {
+      // Create notification records for each selected donor
+      const notifications = selectedDonorIds.map(donorId => ({
+        recipient_id: donorId,
+        subject: `Urgent Blood Donation Request: ${request.blood_type}`,
+        message: `${request.hospital_name} urgently needs ${request.units} units of ${request.blood_type} blood. Please consider donating as soon as possible.`,
+        event_type: 'blood_request',
+        blood_type: request.blood_type,
+        units: request.units,
+        status: 'sent'
+      }));
+      
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+        
+      if (error) throw error;
+      
+      toast.success(`Notification sent to ${selectedDonorIds.length} donors`, {
+        description: "Donors will be notified about this urgent request."
+      });
+      
       setShowDonorMatching(false);
+    } catch (error) {
+      console.error("Error notifying donors:", error);
+      toast.error("Failed to notify donors", {
+        description: "Please try again later."
+      });
     }
   };
   
+
   return (
     <div className="space-y-8">
       <div className="grid md:grid-cols-2 gap-8">
@@ -663,7 +688,7 @@ export const HospitalRequestDashboard = () => {
             </div>
           ) : filteredRequests.length === 0 ? (
             <div className="text-center py-8">
-              <Buildings className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+              <Building className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
               <h3 className="mt-4 text-lg font-medium">No requests found</h3>
               <p className="mt-1 text-muted-foreground">
                 {searchQuery ? "Try adjusting your search" : "There are no blood requests that match your criteria"}
@@ -750,8 +775,8 @@ export const HospitalRequestDashboard = () => {
                                 setSelectedRequest(request.id);
                                 findMatchingDonors({
                                   bloodType: request.blood_type,
-                                  units: request.units,
-                                  urgency: request.priority,
+                                  location: request.hospital_name,
+                                  unitsNeeded: request.units,
                                 });
                                 setShowDonorMatching(true);
                               }}
@@ -847,8 +872,8 @@ export const HospitalRequestDashboard = () => {
                         const request = requests.find(r => r.id === selectedRequest)!;
                         findMatchingDonors({
                           bloodType: request.blood_type,
-                          units: request.units,
-                          urgency: request.priority,
+                          location: request.hospital_name,
+                          unitsNeeded: request.units,
                         });
                         setShowDonorMatching(true);
                       }}
@@ -889,136 +914,4 @@ export const HospitalRequestDashboard = () => {
                   className="text-gray-400"
                   onClick={() => setShowDonorMatching(false)}
                 >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {isMatching ? (
-                <div className="py-12 flex flex-col items-center justify-center">
-                  <div className="animate-spin h-12 w-12 border-4 border-bloodRed-600 rounded-full border-t-transparent mb-4"></div>
-                  <h3 className="text-lg font-medium">Finding optimal donors...</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Our AI is analyzing donor data to find the best matches.
-                  </p>
-                </div>
-              ) : matchedDonors.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center">
-                  <CircleAlert className="h-12 w-12 text-amber-500 mb-4" />
-                  <h3 className="text-lg font-medium">No matching donors found</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Try expanding your search criteria or check again later.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-start">
-                      <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 mr-3" />
-                      <div>
-                        <p className="font-medium text-green-800">
-                          Found {matchedDonors.length} potential donors
-                        </p>
-                        <p className="text-sm text-green-700 mt-1">
-                          Select donors to notify about this blood request
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead>
-                        <tr>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <input type="checkbox" className="rounded border-gray-300" />
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Donor Name
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Blood Type
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Last Donation
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Distance
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Availability
-                          </th>
-                          <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Match Score
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {matchedDonors.map((donor) => (
-                          <tr key={donor.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <input type="checkbox" className="rounded border-gray-300" />
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="font-medium">{donor.name}</div>
-                              <div className="text-xs text-gray-500">{donor.email}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 text-xs font-medium bg-bloodRed-50 text-bloodRed-700 rounded-full">
-                                {donor.bloodType}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {donor.lastDonationDate ? new Date(donor.lastDonationDate).toLocaleDateString() : 'Never'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {donor.distance ? `${donor.distance} km` : 'Unknown'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {donor.availability === 'high' && (
-                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                  High
-                                </span>
-                              )}
-                              {donor.availability === 'medium' && (
-                                <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                                  Medium
-                                </span>
-                              )}
-                              {donor.availability === 'low' && (
-                                <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                                  Low
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {donor.matchScore}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div className="mt-6 flex justify-between">
-                    <Button variant="outline" onClick={() => setShowDonorMatching(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      className="flex items-center gap-1 bg-bloodRed-600 hover:bg-bloodRed-700"
-                      onClick={() => handleNotifySelectedDonors(matchedDonors.slice(0, 5).map(d => d.id))}
-                    >
-                      <Bell className="h-4 w-4" />
-                      Notify Selected Donors
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default HospitalRequestDashboard;
+                  <XCircle className="h-4 w-4

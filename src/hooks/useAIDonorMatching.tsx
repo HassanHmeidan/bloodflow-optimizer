@@ -1,37 +1,36 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
-export type DonorMatchResult = {
+export type MatchedDonor = {
   id: string;
   name: string;
   email: string;
   phone: string;
   bloodType: string;
-  lastDonationDate: string | null;
+  lastDonation: string | null;
   distance: number | null;
-  matchScore: number;
-  availability: 'high' | 'medium' | 'low';
+  score: number;
+  eligibilityLevel: 'high' | 'medium' | 'low';
 };
 
-type MatchOptions = {
+export type DonorMatchingParams = {
   bloodType: string;
   location?: string;
-  urgency: 'low' | 'medium' | 'high' | 'critical';
-  units: number;
+  unitsNeeded: number;
   excludeDonorIds?: string[];
 };
 
 export function useAIDonorMatching() {
-  const [isMatching, setIsMatching] = useState(false);
-  const [matchedDonors, setMatchedDonors] = useState<DonorMatchResult[]>([]);
-  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [matchedDonors, setMatchedDonors] = useState<MatchedDonor[]>([]);
+  const [error, setError] = useState<string>("");
 
   // Function to find matching donors based on criteria
-  const findMatchingDonors = async (options: MatchOptions): Promise<void> => {
-    setIsMatching(true);
-    setError(null);
+  const findMatchingDonors = async (params: DonorMatchingParams): Promise<void> => {
+    setIsLoading(true);
+    setError("");
     
     try {
       // Get eligible donors with the right blood type
@@ -46,7 +45,7 @@ export function useAIDonorMatching() {
           medical_history
         `)
         .eq('eligible_to_donate', true)
-        .eq('blood_type', options.bloodType);
+        .eq('blood_type', params.bloodType);
       
       if (donorsError) throw donorsError;
       
@@ -61,8 +60,8 @@ export function useAIDonorMatching() {
         return lastDonation < minDonationDate;
       });
       
-      if (options.excludeDonorIds && options.excludeDonorIds.length > 0) {
-        eligibleDonors.filter(donor => !options.excludeDonorIds?.includes(donor.id));
+      if (params.excludeDonorIds && params.excludeDonorIds.length > 0) {
+        eligibleDonors.filter(donor => !params.excludeDonorIds?.includes(donor.id));
       }
       
       // Get donor profiles with contact information
@@ -102,14 +101,14 @@ export function useAIDonorMatching() {
             }
           }
           
-          // Determine availability based on score ranges
-          let availability: 'high' | 'medium' | 'low';
+          // Determine eligibility level based on score ranges
+          let eligibilityLevel: 'high' | 'medium' | 'low';
           if (score >= 130) {
-            availability = 'high';
+            eligibilityLevel = 'high';
           } else if (score >= 100) {
-            availability = 'medium';
+            eligibilityLevel = 'medium';
           } else {
-            availability = 'low';
+            eligibilityLevel = 'low';
           }
           
           donorDetails.push({
@@ -118,21 +117,19 @@ export function useAIDonorMatching() {
             email: profile.email || '',
             phone: profile.phone || '',
             bloodType: donor.blood_type,
-            lastDonationDate: donor.last_donation_date,
-            distance: mockDistance, // Mock distance for now
-            matchScore: score,
-            availability
+            lastDonation: donor.last_donation_date,
+            distance: mockDistance,
+            score: score,
+            eligibilityLevel
           });
         }
       }
       
       // Sort by match score (descending)
-      donorDetails.sort((a, b) => b.matchScore - a.matchScore);
+      donorDetails.sort((a, b) => b.score - a.score);
       
       // Prioritize donors based on urgency
-      const requiredDonors = options.urgency === 'critical' ? Math.ceil(options.units * 1.5) :
-                           options.urgency === 'high' ? Math.ceil(options.units * 1.2) :
-                           Math.ceil(options.units);
+      const requiredDonors = Math.ceil(params.unitsNeeded * 1.5);
       
       // Select top N donors based on urgency
       setMatchedDonors(donorDetails.slice(0, requiredDonors));
@@ -142,7 +139,7 @@ export function useAIDonorMatching() {
         toast.warning("No matching donors found", {
           description: "Consider expanding your search criteria."
         });
-      } else if (donorDetails.length < options.units) {
+      } else if (donorDetails.length < params.unitsNeeded) {
         toast.warning(`Only ${donorDetails.length} matching donors found`, {
           description: "This may not be enough to fulfill the request."
         });
@@ -154,12 +151,12 @@ export function useAIDonorMatching() {
       
     } catch (err) {
       console.error("Error finding matching donors:", err);
-      setError(err instanceof Error ? err : new Error('Unknown error occurred'));
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
       toast.error("Failed to find matching donors", {
         description: "Please try again or adjust your criteria."
       });
     } finally {
-      setIsMatching(false);
+      setIsLoading(false);
     }
   };
 
@@ -207,7 +204,10 @@ export function useAIDonorMatching() {
     findMatchingDonors,
     notifyDonors,
     matchedDonors,
-    isMatching,
+    isLoading,
+    isMatching: isLoading,
     error
   };
 }
+
+export default useAIDonorMatching;
