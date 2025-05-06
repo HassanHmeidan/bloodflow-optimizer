@@ -2,10 +2,12 @@
 import { useState } from 'react';
 import { supabase } from "@/lib/supabase";
 import type { Database } from '@/integrations/supabase/types';
+import { toast } from 'sonner';
 
 type BloodType = Database['public']['Enums']['blood_type']; 
 
-interface MatchedDonor {
+// Export the MatchedDonor interface so it can be imported by other files
+export interface MatchedDonor {
   id: string;
   name: string;
   bloodType: BloodType;
@@ -14,15 +16,18 @@ interface MatchedDonor {
   eligibleToNotify: boolean;
   email?: string;
   phone?: string;
+  score: number; // Adding score property needed by HospitalRequestDashboard
+  eligibilityLevel: 'high' | 'medium' | 'low'; // Adding eligibility level property
 }
 
-interface DonorMatchingParams {
+export interface DonorMatchingParams {
   bloodType: BloodType;
   location?: {
     latitude: number;
     longitude: number;
-  };
+  } | string; // Allow string for backward compatibility
   unitsNeeded: number;
+  excludeDonorIds?: string[];
 }
 
 export function useAIDonorMatching() {
@@ -59,7 +64,7 @@ export function useAIDonorMatching() {
     return R * c;
   };
 
-  const findMatchingDonors = async ({ bloodType, location, unitsNeeded }: DonorMatchingParams) => {
+  const findMatchingDonors = async ({ bloodType, location, unitsNeeded, excludeDonorIds }: DonorMatchingParams) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -86,8 +91,16 @@ export function useAIDonorMatching() {
         return;
       }
       
+      // Filter out excluded donors if provided
+      let filteredDonors = donorProfiles;
+      if (excludeDonorIds && excludeDonorIds.length > 0) {
+        filteredDonors = donorProfiles.filter(
+          donor => !excludeDonorIds.includes(donor.id)
+        );
+      }
+      
       // Get donor user information
-      const donorIds = donorProfiles.map(donor => donor.user_id);
+      const donorIds = filteredDonors.map(donor => donor.user_id);
       const { data: userProfiles, error: profileError } = await supabase
         .from('profiles')
         .select(`
@@ -104,7 +117,7 @@ export function useAIDonorMatching() {
       // Match donors with their profiles
       let donors: MatchedDonor[] = [];
       
-      donorProfiles.forEach(donor => {
+      filteredDonors.forEach(donor => {
         const userProfile = userProfiles?.find(profile => profile.id === donor.user_id);
         
         if (userProfile) {
@@ -114,22 +127,44 @@ export function useAIDonorMatching() {
           const daysSinceLastDonation = Math.floor((today.getTime() - lastDonation.getTime()) / (1000 * 60 * 60 * 24));
           const eligibleToNotify = daysSinceLastDonation >= 56;
           
+          // Calculate a score for the donor
+          let score = 100; // Base score
+          
+          // Add points for days since last donation (more days = higher score)
+          if (donor.last_donation_date) {
+            score += Math.min(50, Math.floor(daysSinceLastDonation / 30) * 10);
+          } else {
+            score += 50; // Never donated before
+          }
+          
+          // Determine eligibility level
+          let eligibilityLevel: 'high' | 'medium' | 'low';
+          if (score >= 130) {
+            eligibilityLevel = 'high';
+          } else if (score >= 100) {
+            eligibilityLevel = 'medium';
+          } else {
+            eligibilityLevel = 'low';
+          }
+          
           donors.push({
             id: donor.id,
             name: `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || 'Unknown',
             bloodType: donor.blood_type,
-            distance: location ? 0 : 999, // Will be updated if location provided
+            distance: 0, // Will be updated if location provided
             lastDonation: donor.last_donation_date || 'Never',
             eligibleToNotify,
             email: userProfile.email,
-            phone: userProfile.phone
+            phone: userProfile.phone,
+            score: score,
+            eligibilityLevel: eligibilityLevel
           });
         }
       });
       
       // If location is provided, calculate distances and sort by proximity
       if (location) {
-        // We would need donor locations here, but for now let's simulate with random distances
+        // For now, we'll just simulate distances
         donors = donors.map(donor => ({
           ...donor,
           distance: Math.floor(Math.random() * 50) // simulate distances up to 50km
@@ -157,17 +192,76 @@ export function useAIDonorMatching() {
       // Limit to required number of donors (plus some extra for safety)
       setMatchedDonors(donors.slice(0, unitsNeeded * 2));
       
-    } catch (err) {
+      // Show notification about match results
+      if (donors.length === 0) {
+        toast.warning("No matching donors found", {
+          description: "Consider expanding your search criteria."
+        });
+      } else if (donors.length < unitsNeeded) {
+        toast.warning(`Only ${donors.length} matching donors found`, {
+          description: "This may not be enough to fulfill the request."
+        });
+      } else {
+        toast.success(`Found ${Math.min(donors.length, unitsNeeded * 2)} potential donors`, {
+          description: "You can now notify these donors about the donation need."
+        });
+      }
+    } catch (err: any) {
       console.error("Error finding matching donors:", err);
-      setError("Failed to find matching donors. Please try again.");
+      setError(err.message || "Failed to find matching donors. Please try again.");
       setMatchedDonors([]);
+      
+      toast.error("Failed to find matching donors", {
+        description: "Please try again or adjust your criteria."
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Add the notifyDonors function that's being used in HospitalRequestDashboard
+  const notifyDonors = async (donorIds: string[], requestDetails: {
+    requestId: string;
+    bloodType: string;
+    units: number;
+    urgency: string;
+    hospitalName: string;
+  }): Promise<boolean> => {
+    try {
+      // Create notification records and potentially send emails/SMS
+      const notifications = donorIds.map(donorId => ({
+        recipient_id: donorId,
+        subject: `Urgent Blood Donation Request: ${requestDetails.bloodType}`,
+        message: `${requestDetails.hospitalName} urgently needs ${requestDetails.units} units of ${requestDetails.bloodType} blood. Please consider donating as soon as possible.`,
+        event_type: 'blood_request',
+        blood_type: requestDetails.bloodType,
+        units: requestDetails.units,
+        status: 'sent'
+      }));
+      
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+        
+      if (error) throw error;
+      
+      toast.success(`Notification sent to ${donorIds.length} donors`, {
+        description: "Donors will be notified about this urgent request."
+      });
+      
+      return true;
+    } catch (err) {
+      console.error("Error notifying donors:", err);
+      toast.error("Failed to notify donors", {
+        description: "Please try again later."
+      });
+      return false;
+    }
+  };
+
   return {
     findMatchingDonors,
+    notifyDonors,
     matchedDonors,
     isLoading,
     error
