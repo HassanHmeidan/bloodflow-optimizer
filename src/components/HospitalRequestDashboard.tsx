@@ -50,9 +50,12 @@ import {
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { BloodRequestStatus } from '@/types/status';
+import type { Database } from '@/integrations/supabase/types';
+
+// Define BloodType from the Database type
+type BloodType = Database['public']['Enums']['blood_type'];
 
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
-type BloodType = typeof BLOOD_TYPES[number];
 
 const PRIORITY_LEVELS = [
   { value: "low", label: "Low" },
@@ -63,6 +66,7 @@ const PRIORITY_LEVELS = [
 
 type PriorityLevel = "low" | "medium" | "high" | "critical";
 
+// Define the form schema with explicit types to avoid deep instantiation
 const requestFormSchema = z.object({
   hospitalId: z.string({
     required_error: "Please select a hospital.",
@@ -85,13 +89,22 @@ const requestFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-type RequestFormValues = z.infer<typeof requestFormSchema>;
+// Use type alias instead of inference to avoid deep instantiation
+type RequestFormValues = {
+  hospitalId: string;
+  bloodType: typeof BLOOD_TYPES[number];
+  units: string;
+  priority: PriorityLevel;
+  requiredBy: Date;
+  notes?: string;
+};
 
 interface Hospital {
   id: string;
   name: string;
 }
 
+// Define BloodRequest explicitly to avoid deep type instantiation
 interface BloodRequest {
   id: string;
   hospital_id: string;
@@ -476,7 +489,6 @@ export const HospitalRequestDashboard = () => {
       });
     }
   };
-  
 
   return (
     <div className="space-y-8">
@@ -893,144 +905,3 @@ export const HospitalRequestDashboard = () => {
                           variant="outline"
                           className="border-red-600 text-red-600 hover:bg-red-50"
                           onClick={() => handleRejectRequest(selectedRequest)}
-                        >
-                          Reject Request
-                        </Button>
-                      </div>
-                    )}
-                    {requests.find(r => r.id === selectedRequest)!.status === 'approved' && (
-                      <Button 
-                        onClick={() => handleFulfillRequest(selectedRequest)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        Mark as Fulfilled
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        const request = requests.find(r => r.id === selectedRequest)!;
-                        findMatchingDonors({
-                          bloodType: request.blood_type,
-                          location: { latitude: 0, longitude: 0 },
-                          unitsNeeded: request.units,
-                        });
-                        setShowDonorMatching(true);
-                      }}
-                    >
-                      Find Matching Donors
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* AI Donor Matching Modal */}
-      {selectedRequest && showDonorMatching && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => setShowDonorMatching(false)}
-        >
-          <div 
-            className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-bold">AI Donor Matching</h2>
-                  <p className="text-muted-foreground">
-                    {requests.find(r => r.id === selectedRequest)?.hospital_name} • {' '}
-                    {requests.find(r => r.id === selectedRequest)?.blood_type} • {' '}
-                    {requests.find(r => r.id === selectedRequest)?.units} units
-                  </p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-gray-400"
-                  onClick={() => setShowDonorMatching(false)}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {isMatching ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin h-10 w-10 border-2 border-bloodRed-600 rounded-full border-t-transparent mb-4"></div>
-                  <p className="text-center text-muted-foreground">Finding compatible donors...</p>
-                </div>
-              ) : (
-                <div>
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-6">
-                      <p className="font-medium">Error</p>
-                      <p className="text-sm">{error}</p>
-                    </div>
-                  )}
-                  
-                  {matchedDonors.length === 0 ? (
-                    <div className="text-center py-12">
-                      <CircleAlert className="h-12 w-12 mx-auto text-amber-500 mb-3" />
-                      <h3 className="text-lg font-medium">No compatible donors found</h3>
-                      <p className="text-muted-foreground mt-2">
-                        Try expanding your search criteria or check if there are any available donors for this blood type.
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="mb-4">
-                        <p className="font-medium">Found {matchedDonors.length} potential donors.</p>
-                        <p className="text-sm text-muted-foreground">
-                          Select donors to notify about this urgent request.
-                        </p>
-                      </div>
-                      
-                      <div className="border rounded-md overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="px-4 py-3 text-left">Name</th>
-                              <th className="px-4 py-3 text-left">Blood Type</th>
-                              <th className="px-4 py-3 text-left">Last Donation</th>
-                              <th className="px-4 py-3 text-left">Distance</th>
-                              <th className="px-4 py-3 text-left">Score</th>
-                              <th className="px-4 py-3 text-left">Eligibility</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {matchedDonors.map(renderDonorRow)}
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div className="mt-6 flex justify-between">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowDonorMatching(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          className="bg-bloodRed-600 hover:bg-bloodRed-700"
-                          onClick={() => handleNotifySelectedDonors(matchedDonors.map(d => d.id))}
-                        >
-                          Notify All Donors
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default HospitalRequestDashboard;
