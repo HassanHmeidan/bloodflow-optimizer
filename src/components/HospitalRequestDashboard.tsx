@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -34,7 +35,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { supabase } from '@/lib/supabase';
-import { useAIDonorMatching, type MatchedDonor } from '@/hooks/useAIDonorMatching';
+import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
 import { BloodRequestFlow } from '@/components/BloodRequestFlow';
 import { 
   CalendarIcon, 
@@ -54,6 +55,7 @@ import type { Database } from '@/integrations/supabase/types';
 
 // Define BloodType from the Database type
 type BloodType = Database['public']['Enums']['blood_type'];
+type MatchedDonor = import('@/hooks/useAIDonorMatching').MatchedDonor;
 
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
@@ -634,6 +636,7 @@ export const HospitalRequestDashboard = () => {
                                 return date < new Date();
                               }}
                               initialFocus
+                              className="p-3 pointer-events-auto"
                             />
                           </PopoverContent>
                         </Popover>
@@ -905,3 +908,141 @@ export const HospitalRequestDashboard = () => {
                           variant="outline"
                           className="border-red-600 text-red-600 hover:bg-red-50"
                           onClick={() => handleRejectRequest(selectedRequest)}
+                        >
+                          Reject Request
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {requests.find(r => r.id === selectedRequest)!.status === 'approved' && (
+                      <Button 
+                        onClick={() => handleFulfillRequest(selectedRequest)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Mark as Fulfilled
+                      </Button>
+                    )}
+                    
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setSelectedRequest(null)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* AI Donor Matching Modal */}
+      {showDonorMatching && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setShowDonorMatching(false)}
+        >
+          <div 
+            className="bg-white rounded-lg max-w-5xl w-full max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-xl font-bold">AI Donor Matching</h2>
+                  <p className="text-muted-foreground">
+                    Finding optimal donors based on blood type, location, and eligibility
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-gray-400"
+                  onClick={() => setShowDonorMatching(false)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {isMatching ? (
+                <div className="py-12 flex flex-col items-center justify-center">
+                  <div className="animate-spin h-12 w-12 border-2 border-bloodRed-600 rounded-full border-t-transparent mb-4"></div>
+                  <h3 className="text-lg font-medium">Finding optimal donors...</h3>
+                  <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
+                </div>
+              ) : matchedDonors.length > 0 ? (
+                <div>
+                  <p className="mb-4">
+                    Found <span className="font-medium">{matchedDonors.length}</span> potential donors for this request.
+                    Select donors to notify:
+                  </p>
+                  
+                  <div className="border rounded-md mb-6 overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50 text-sm">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">Donor</th>
+                          <th className="px-4 py-3 text-left font-medium">Blood Type</th>
+                          <th className="px-4 py-3 text-left font-medium">Last Donation</th>
+                          <th className="px-4 py-3 text-left font-medium">Distance</th>
+                          <th className="px-4 py-3 text-left font-medium">Match Score</th>
+                          <th className="px-4 py-3 text-left font-medium">Eligibility</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matchedDonors.map(donor => renderDonorRow(donor))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowDonorMatching(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="bg-bloodRed-600 hover:bg-bloodRed-700"
+                      onClick={() => handleNotifySelectedDonors(matchedDonors.map(d => d.id))}
+                    >
+                      <Bell className="mr-2 h-4 w-4" /> 
+                      Notify Selected Donors
+                    </Button>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="py-8 text-center">
+                  <CircleAlert className="h-12 w-12 mx-auto text-red-600 mb-2" />
+                  <h3 className="text-lg font-medium">Error Finding Donors</h3>
+                  <p className="text-muted-foreground mt-1">{error}</p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => setShowDonorMatching(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <CircleAlert className="h-12 w-12 mx-auto text-yellow-600 mb-2" />
+                  <h3 className="text-lg font-medium">No Matching Donors</h3>
+                  <p className="text-muted-foreground mt-1">
+                    We couldn't find any eligible donors matching your criteria.
+                  </p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => setShowDonorMatching(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
