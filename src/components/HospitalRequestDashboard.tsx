@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -35,7 +34,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
 import { supabase } from '@/lib/supabase';
-import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
 import { BloodRequestFlow } from '@/components/BloodRequestFlow';
 import { 
   CalendarIcon, 
@@ -68,8 +66,40 @@ const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
   critical: "Critical"
 };
 
-// Import the MatchedDonor type but avoid circular references
-import type { MatchedDonor } from '@/hooks/useAIDonorMatching';
+// Import type definition without importing the implementation
+// Use a simplified, locally defined version of the type
+type MatchedDonor = {
+  id: string;
+  name: string;
+  email?: string;
+  bloodType: string;
+  lastDonation?: string;
+  distance?: number;
+  score: number;
+  eligibilityLevel: 'high' | 'medium' | 'low';
+};
+
+// Define AI donor matching hook interface
+interface AIDonorMatchingHook {
+  findMatchingDonors: (params: {
+    bloodType: BloodTypeValue;
+    location: { latitude: number; longitude: number };
+    unitsNeeded: number;
+  }) => Promise<void>;
+  matchedDonors: MatchedDonor[];
+  notifyDonors: (donorIds: string[], requestInfo: {
+    requestId: string;
+    bloodType: BloodTypeValue;
+    units: number;
+    urgency: PriorityLevel;
+    hospitalName: string;
+  }) => Promise<boolean>;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Import the actual hook implementation separately
+import { useAIDonorMatching } from '@/hooks/useAIDonorMatching';
 
 // Define the form schema with explicit types
 const requestFormSchema = z.object({
@@ -94,8 +124,7 @@ const requestFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Explicitly define the form values type without using z.infer
-// This avoids potential deep instantiation issues
+// Explicitly define the form values type
 type RequestFormValues = {
   hospitalId: string;
   bloodType: BloodTypeValue;
@@ -112,7 +141,6 @@ interface Hospital {
 }
 
 // Define BloodRequest interface with explicit types
-// Avoiding dependencies on other complex types
 interface BloodRequest {
   id: string;
   hospital_id: string;
@@ -137,8 +165,14 @@ export const HospitalRequestDashboard = () => {
   const [showDonorMatching, setShowDonorMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use the hook without type instantiations
-  const { findMatchingDonors, matchedDonors, notifyDonors, isLoading: isMatching, error } = useAIDonorMatching();
+  // Use the hook with explicit typing
+  const { 
+    findMatchingDonors, 
+    matchedDonors, 
+    notifyDonors, 
+    isLoading: isMatching, 
+    error 
+  } = useAIDonorMatching() as AIDonorMatchingHook;
   
   // Use the form with explicit types
   const form = useForm<RequestFormValues>({
