@@ -51,18 +51,24 @@ import {
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { BloodRequestStatus } from '@/types/status';
-import type { Database } from '@/integrations/supabase/types';
 
-// Define blood types directly without relying on Database type
+// Define blood types directly
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 type BloodTypeValue = typeof BLOOD_TYPES[number];
 
-// Define priority levels
+// Define priority levels with both string array and display mapping
 const PRIORITY_LEVELS = ["low", "medium", "high", "critical"] as const;
 type PriorityLevel = typeof PRIORITY_LEVELS[number];
 
+// Priority display mapping for UI
+const PRIORITY_DISPLAY: Record<PriorityLevel, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  critical: "Critical"
+};
+
 // Import the MatchedDonor type but avoid circular references
-// We're using the type but not depending on its implementation
 import type { MatchedDonor } from '@/hooks/useAIDonorMatching';
 
 // Define the form schema with explicit types
@@ -186,7 +192,7 @@ export const HospitalRequestDashboard = () => {
           return {
             ...request,
             hospital_name: hospital?.name || 'Unknown Hospital',
-            blood_type: request.blood_type as BloodType,
+            blood_type: request.blood_type as BloodTypeValue,
             priority: request.priority as PriorityLevel,
             status: request.status as BloodRequestStatus
           } as BloodRequest;
@@ -593,8 +599,8 @@ export const HospitalRequestDashboard = () => {
                           </FormControl>
                           <SelectContent>
                             {PRIORITY_LEVELS.map((priority) => (
-                              <SelectItem key={priority.value} value={priority.value}>
-                                {priority.label}
+                              <SelectItem key={priority} value={priority}>
+                                {PRIORITY_DISPLAY[priority]}
                               </SelectItem>
                             ))}
                           </SelectContent>
